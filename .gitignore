@@ -1,0 +1,25 @@
+# Fetched by setup.ps1
+deps/
+tools/
+
+# Build outputs (contain files derived from the game; never commit them)
+mod/
+mod-convergence/
+out/
+release/staging/
+release/dist/
+src/**/bin/
+src/**/obj/
+
+# Local scratch and personal data
+work/
+save-backup/
+release/images/
+Play Build Compass.bat
+*.user
+
+# Reference crops of the game's own icon art (used only while designing the icons)
+data/icons/style-reference.png
+data/icons/current-icons.png
+# Original download name of compass.png
+data/icons/9082ea00-*.png

@@ -1,0 +1,26 @@
+diff --git a/SoulsFormats/Formats/PARAM/PARAM/Row.cs b/SoulsFormats/Formats/PARAM/PARAM/Row.cs
+index b9418cc..34807b9 100644
+--- a/SoulsFormats/Formats/PARAM/PARAM/Row.cs
++++ b/SoulsFormats/Formats/PARAM/PARAM/Row.cs
+@@ -12,6 +12,12 @@ namespace SoulsFormats
+         /// </summary>
+         public class Row
+         {
++            /// <summary>
++            /// BuildCompass local patch: when true, bitfield padding bits that hold data are dropped
++            /// instead of throwing. Only for read-only use of params whose def lags the game.
++            /// </summary>
++            public static bool IgnoreOrphanedBits;
++
+             /// <summary>
+             /// The paramdef that describes this row.
+             /// </summary>
+@@ -133,7 +139,7 @@ namespace SoulsFormats
+ 
+                 void checkOrphanedBits()
+                 {
+-                    if (bitOffset != -1 && (bitValue >> bitOffset) != 0)
++                    if (bitOffset != -1 && (bitValue >> bitOffset) != 0 && !IgnoreOrphanedBits)
+                     {
+                         throw new InvalidDataException($"Invalid paramdef {paramdef.ParamType}; bits would be lost before +0x{br.Position - DataOffset:X} in row {ID}.");
+                     }
