@@ -75,6 +75,8 @@ static class Program
             case "cnvspells": CnvSpells.Run(args.Skip(1).ToArray()); return 0;
             case "findlot": FindLot.Run(args.Skip(1).ToArray()); return 0;
             case "talkgrep": TalkGrep.Run(args.Skip(1).ToArray()); return 0;
+            case "fmgexact": FmgExact.Run(args.Skip(1).ToArray()); return 0;
+            case "textcheck": TextCheck.Run(args.Skip(1).ToArray()); return 0;
             case "tpf": Tpf.List(args.Skip(1).ToArray()); return 0;
             case "layouts": Tpf.Layouts(args.Skip(1).ToArray()); return 0;
             case "export": Tpf.Export(args.Skip(1).ToArray()); return 0;

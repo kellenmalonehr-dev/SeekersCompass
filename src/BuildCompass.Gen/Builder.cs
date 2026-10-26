@@ -70,7 +70,9 @@ static class Builder
         // --- params
         var wmp = gd["WorldMapPointParam"];
         var template = wmp[87210100] ?? throw new Exception("WMP template row missing");
-        var placeText = new SortedDictionary<int, string>();
+        // Hover text ids are shared by every language; each language's PlaceName gets its own wording.
+        var hoverIds = new List<(Placement p, int nameText, int collectedText)>();
+        var fixedPlaceText = new SortedDictionary<int, string>(); // language-neutral entries (icon test)
         int rowId = WmpRowBase, textId = PlaceTextBase;
         legacyConv = gd["WorldMapLegacyConvParam"].Rows;
         var snap = new LocationSnap(wmp.Rows, gd["BonfireWarpParam"].Rows);
@@ -78,8 +80,7 @@ static class Builder
         foreach (var p in cat.Placements)
         {
             int nameText = textId++, collectedText = textId++;
-            placeText[nameText] = Catalog.Fit(p.Name, p.Details);
-            placeText[collectedText] = Catalog.Fit(p.Name, p.Details, " (collected)");
+            hoverIds.Add((p, nameText, collectedText));
             var basePos = snap.Place(p);
             // A map point shows while one flag is on, so an item gets one row per matching stat plus
             // one for its category; the derived flags encode the menu's AND/OR rules (see Visibility).
@@ -94,7 +95,7 @@ static class Builder
         }
         Console.WriteLine($"snapped onto locations: {snap.Snapped} items at {snap.Locations} locations");
 
-        if (iconTest) AddIconPalette(gd, text, wmp, template, statFlag[Stat.STR], placeText, ref rowId, ref textId);
+        if (iconTest) AddIconPalette(gd, text, wmp, template, statFlag[Stat.STR], fixedPlaceText, ref rowId, ref textId);
         wmp.Rows = wmp.Rows.OrderBy(r => r.ID).ToList();
         Console.WriteLine($"map points: {rowId - WmpRowBase}");
 
@@ -110,22 +111,36 @@ static class Builder
         // --- map icons
         Icons.Build(mod);
 
-        // --- text
-        var goodsText = new Dictionary<string, (int, string)>
+        // --- text, for every unpacked game language
+        var langs = Loc.All();
+        Console.WriteLine($"languages: {string.Join(" ", langs.Select(l => l.Lang))}");
+        foreach (var loc in langs)
         {
-            ["GoodsName"] = (CompassGoodsId, CompassName),
-            ["GoodsInfo"] = (CompassGoodsId, "Allows you to access the Seeker's Compass at any site of grace."),
-            ["GoodsCaption"] = (CompassGoodsId, "Allows you to access the Seeker's Compass at any site of grace."),
-        };
-        var talkText = GraceMenu.Texts();
-        Directory.CreateDirectory(Path.Combine(mod, "msg", "engus"));
-        foreach (var bnd in new[] { "item.msgbnd.dcx", "item_dlc01.msgbnd.dcx", "item_dlc02.msgbnd.dcx" })
-            PatchFmgs(Program.In("msg", "engus", bnd), Path.Combine(mod, "msg", "engus", bnd), fmgName =>
-                fmgName == "PlaceName" ? placeText.ToDictionary(k => k.Key, k => k.Value)
-                : goodsText.TryGetValue(fmgName, out var e) ? new Dictionary<int, string> { [e.Item1] = e.Item2 } : null);
-        foreach (var bnd in new[] { "menu.msgbnd.dcx", "menu_dlc01.msgbnd.dcx", "menu_dlc02.msgbnd.dcx" })
-            PatchFmgs(Program.In("msg", "engus", bnd), Path.Combine(mod, "msg", "engus", bnd), fmgName =>
-                fmgName == "EventTextForTalk" ? talkText : null);
+            var placeText = new Dictionary<int, string>(fixedPlaceText);
+            foreach (var (p, nameText, collectedText) in hoverIds)
+            {
+                // The item's own name in this language (Convergence's new items may only exist in English).
+                string name = loc.Name(p.Kind, p.ItemId) ?? p.Name;
+                var details = p.Render(loc);
+                placeText[nameText] = loc.Fit(name, details);
+                placeText[collectedText] = loc.Fit(name, details, collected: true);
+            }
+            var goodsText = new Dictionary<string, (int, string)>
+            {
+                ["GoodsName"] = (CompassGoodsId, CompassName),
+                ["GoodsInfo"] = (CompassGoodsId, loc.CompassDescription),
+                ["GoodsCaption"] = (CompassGoodsId, loc.CompassDescription),
+            };
+            var talkText = GraceMenu.Texts(loc);
+            Directory.CreateDirectory(Path.Combine(mod, "msg", loc.Lang));
+            foreach (var bnd in new[] { "item.msgbnd.dcx", "item_dlc01.msgbnd.dcx", "item_dlc02.msgbnd.dcx" })
+                PatchFmgs(Program.In("msg", loc.Lang, bnd), Path.Combine(mod, "msg", loc.Lang, bnd), fmgName =>
+                    fmgName == "PlaceName" ? placeText
+                    : goodsText.TryGetValue(fmgName, out var e) ? new Dictionary<int, string> { [e.Item1] = e.Item2 } : null);
+            foreach (var bnd in new[] { "menu.msgbnd.dcx", "menu_dlc01.msgbnd.dcx", "menu_dlc02.msgbnd.dcx" })
+                PatchFmgs(Program.In("msg", loc.Lang, bnd), Path.Combine(mod, "msg", loc.Lang, bnd), fmgName =>
+                    fmgName == "EventTextForTalk" ? talkText : null);
+        }
 
         // --- grace menu (talk script)
         GraceMenu.Build(mod, statFlag, kindFlag, vis);
@@ -261,11 +276,12 @@ static class Builder
 
     static void WriteReport(string path, List<Placement> ps)
     {
+        var englishLoc = Loc.For("engus");
         Directory.CreateDirectory(Path.GetDirectoryName(path));
         using var w = new StreamWriter(path);
         w.WriteLine("kind,name,stats,map,pos,source,hover");
         foreach (var p in ps.OrderBy(p => p.Kind).ThenBy(p => p.Name))
-            w.WriteLine($"{p.Kind},\"{p.Name}\",{string.Join("/", p.Stats)},m{p.Area}_{p.GridX:00}_{p.GridZ:00},\"{p.Pos.X:0.0} {p.Pos.Y:0.0} {p.Pos.Z:0.0}\",{p.Source},\"{Catalog.Fit(p.Name, p.Details).Replace("\"", "'")}\"");
+            w.WriteLine($"{p.Kind},\"{p.Name}\",{string.Join("/", p.Stats)},m{p.Area}_{p.GridX:00}_{p.GridZ:00},\"{p.Pos.X:0.0} {p.Pos.Y:0.0} {p.Pos.Z:0.0}\",{p.Source},\"{englishLoc.Fit(p.Name, p.Render(englishLoc)).Replace("\"", "'")}\"");
     }
 }
 

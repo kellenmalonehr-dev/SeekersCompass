@@ -69,6 +69,9 @@ Weapons count for every stat they scale with at grade D or better. Spells count 
 [*]Items inside ruins, caves and catacombs sit on that location's icon, next to any NPC marker, instead of hiding underneath it.
 [/list]
 
+[size=4][b]Languages[/b][/size]
+Works in all 15 of the game's languages. Item names, stat names, armor slots and menu words use the game's own official translations; only the "(collected)" tag and the compass description were translated for this mod (corrections welcome). Arabic shows those two in English.
+
 [size=4][b]Coverage[/b][/size]
 Base game and Shadow of the Erdtree world pickups and unique enemy drops. Items from bosses, remembrances, shops and invaders have no fixed spot in the world, so they aren't marked.
 
@@ -120,10 +123,10 @@ Delete the extracted folder. Convergence: run Uninstall_SeekersCompass.bat first
 
 ## File descriptions (one per upload)
 
-**SeekersCompass-1.0.0.zip** (Main file)
+**SeekersCompass-1.1.0.zip** (Main file)
 > Seeker's Compass for the base game and Shadow of the Erdtree (tested with the DLC installed). Requires Mod Engine 3. Run Launch_SeekersCompass.bat; offline only, with its own save file.
 
-**SeekersCompass-1.0.0-Convergence-3.0.3.0.zip** (Main file)
+**SeekersCompass-1.1.0-Convergence-3.0.3.0.zip** (Main file)
 > Seeker's Compass built on top of The Convergence 3.0.3.0. Extract into your ConvergenceER folder, run Install_SeekersCompass.bat once, then launch Convergence as usual.
 
 ## Images
@@ -136,6 +139,8 @@ Upload from `release/images/` (1920x1080). Suggested order:
 5. SeekersCompass_Map_Purchase_Location.jpg — where to buy it
 
 ## Changelog
+
+**1.1.0** — All 15 game languages: hover text uses each language's item names and the game's own stat, armor slot and menu words.
 
 **1.0.0** — First release.
 

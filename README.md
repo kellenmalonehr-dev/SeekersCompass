@@ -30,7 +30,7 @@ Requirements:
 - Windows, [.NET 9 SDK](https://dotnet.microsoft.com/download), git
 - Elden Ring (Steam), with these folders unpacked into the `Game` folder using
   [UXM Selective Unpack](https://github.com/Nordgaren/UXM-Selective-Unpack):
-  `map/mapstudio`, `event`, `msg/engus`, `menu`, `script/talk`
+  `map/mapstudio`, `event`, `msg` (all languages), `menu`, `script/talk`
 - Any installed Steam game that ships `oo2core_8_win64.dll` or `oo2core_9_win64.dll`
   (Elden Ring's own `oo2core_6` is too old for SoulsFormats' compression code)
 
@@ -67,6 +67,9 @@ Release zips: `powershell -ExecutionPolicy Bypass -File release\package.ps1 -Ver
   state numbers, so it also applies to Convergence's differently compiled script.
 - **Icons:** map icons repaint unused `MENU_MAP_` slots 86, 89, 214 and 233 in
   `menu/*/01_common.tpf.dcx`; the compass gets item icon 40900. Art is in `data/icons/`.
+- **Languages:** every unpacked `msg/<lang>` gets the mod's text (`Loc`): item names from that language's
+  FMGs, stat/slot/menu words from the game's own `GR_MenuText`/`EventTextForTalk` entries (same ids as
+  the English words). Only "(collected)" and the compass description are the mod's own translations.
 - **Settings:** event flags 78990-78994 (stats), 78982-78985 (types) and 78910-78935 (derived).
 
 Limits: boss rewards, remembrances, shops and invader drops have no fixed spot and aren't marked;

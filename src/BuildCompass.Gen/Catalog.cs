@@ -9,7 +9,7 @@ enum Stat { STR, DEX, INT, FAI, ARC }
 enum Kind { Weapon, Spell, Armor, Talisman }
 
 /// One collectable item at one place in the world.
-record Placement(Kind Kind, int ItemId, string Name, string[] Details, List<Stat> Stats,
+record Placement(Kind Kind, int ItemId, string Name, Func<Loc, string[]> Render, List<Stat> Stats,
     uint PickupFlag, byte Area, byte GridX, byte GridZ, Vector3 Pos, string Source);
 
 /// Walks MSB treasures and unique enemy drops, resolves item lots, and tags each item with stats.
@@ -158,15 +158,18 @@ class Catalog
 
         // Per stat: grade and requirement, e.g. "STR D 16". Shorter variants drop spacing, then E grades.
         var parts = corr.Where(c => c.v > 0 || c.req > 0).ToList();
-        static string Stat1((Stat s, float v, int req) c, string sep) =>
-            c.v > 0 ? (c.req > 0 ? $"{c.s} {Grade(c.v)}{sep}{c.req}" : $"{c.s} {Grade(c.v)}") : $"{c.s} {c.req}";
-        var details = new[]
+        string[] Render(Loc loc)
         {
-            string.Join(", ", parts.Select(c => Stat1(c, " "))),
-            string.Join(" ", parts.Select(c => Stat1(c, ""))),
-            string.Join(" ", parts.Where(c => c.v >= 25).Select(c => Stat1(c, ""))),
-        };
-        return new Placement(Kind.Weapon, rowId, name, details, stats, flag, area, gx, gz, pos, source);
+            string Stat1((Stat s, float v, int req) c, string sep) =>
+                c.v > 0 ? (c.req > 0 ? $"{loc.StatShort(c.s)} {Grade(c.v)}{sep}{c.req}" : $"{loc.StatShort(c.s)} {Grade(c.v)}") : $"{loc.StatShort(c.s)} {c.req}";
+            return new[]
+            {
+                string.Join(", ", parts.Select(c => Stat1(c, " "))),
+                string.Join(" ", parts.Select(c => Stat1(c, ""))),
+                string.Join(" ", parts.Where(c => c.v >= 25).Select(c => Stat1(c, ""))),
+            };
+        }
+        return new Placement(Kind.Weapon, rowId, name, Render, stats, flag, area, gx, gz, pos, source);
     }
 
     // --- spells ------------------------------------------------------------
@@ -188,10 +191,13 @@ class Catalog
         };
         var stats = tags.Override(name, req.Where(r => r.v > 0).Select(r => r.s).ToList());
         bool sorcery = goodsType is 5 or 17;
-        string needs = string.Join(", ", req.Where(r => r.v > 0).Select(r => $"{r.s} {r.v}"));
         int fp = m.Get<int>("mp");
-        var details = new[] { $"{needs}, {fp} FP", needs.Replace(", ", " ") + $" {fp}FP", needs.Replace(", ", " ") };
-        return new Placement(Kind.Spell, id, name, details, stats, flag, area, gx, gz, pos, source);
+        string[] Render(Loc loc)
+        {
+            string needs = string.Join(", ", req.Where(r => r.v > 0).Select(r => $"{loc.StatShort(r.s)} {r.v}"));
+            return new[] { $"{needs}, {fp} {loc.FP}", needs.Replace(", ", " ") + $" {fp}{loc.FP}", needs.Replace(", ", " ") };
+        }
+        return new Placement(Kind.Spell, id, name, Render, stats, flag, area, gx, gz, pos, source);
     }
 
     // --- armor & talismans -------------------------------------------------
@@ -208,10 +214,14 @@ class Catalog
         if (stats.Count == 0) UntaggedArmor.Add((name, $"m{area}_{gx:00}_{gz:00}", a.Get<float>("weight")));
         string slot = a.Get<int>("headEquip") == 1 ? "Head" : a.Get<int>("bodyEquip") == 1 ? "Chest" : a.Get<int>("armEquip") == 1 ? "Arms" : "Legs";
         // Real bonuses read "INT +3"; tag-only pieces read "INT build"; plain pieces just the slot.
-        string what = bonuses.Count > 0 ? string.Join(", ", bonuses.Select(b => $"{b.label} {b.amount:+0;-0}"))
-            : stats.Count > 0 ? $"{string.Join("/", stats)} build" : null;
-        var details = what != null ? new[] { $"{slot}, {what}", what } : new[] { slot };
-        return new Placement(Kind.Armor, id, name, details, stats, flag, area, gx, gz, pos, source);
+        string[] Render(Loc loc)
+        {
+            string Label((string label, int amount, Stat? stat) b) => b.stat is Stat s ? loc.StatShort(s) : loc.Attribute(b.label);
+            string what = bonuses.Count > 0 ? string.Join(", ", bonuses.Select(b => $"{Label(b)} {b.amount:+0;-0}"))
+                : stats.Count > 0 ? loc.Build(stats) : null;
+            return what != null ? new[] { $"{loc.Slot(slot)}, {what}", what } : new[] { loc.Slot(slot) };
+        }
+        return new Placement(Kind.Armor, id, name, Render, stats, flag, area, gx, gz, pos, source);
     }
 
     static readonly (string field, string label, Stat? stat)[] BonusFields =
@@ -241,27 +251,9 @@ class Catalog
         string name = text.Name(Kind.Talisman, id);
         if (name == null) return null;
         var stats = tags.TalismanStats(name); // may be empty: then it only shows under "All talismans"
-        string info = text.TalismanInfo(id)?.Replace("\n", " ") ?? "";
-        var details = new[] { info };
-        return new Placement(Kind.Talisman, id, name, details, stats, flag, area, gx, gz, pos, source);
-    }
-
-    /// The map tooltip shows one line only and clips it at about 54 characters (newlines hide
-    /// everything after the first line). Picks the most detailed variant that fits, then trims.
-    public const int MaxHover = 50;
-
-    public static string Fit(string name, string[] details, string suffix = "")
-    {
-        foreach (var d in details.Where(d => !string.IsNullOrEmpty(d)))
-        {
-            string s = $"{name} | {d}{suffix}";
-            if (s.Length <= MaxHover) return s;
-        }
-        string last = details.LastOrDefault(d => !string.IsNullOrEmpty(d)) ?? "";
-        string head = $"{name} | ";
-        int room = MaxHover - head.Length - suffix.Length;
-        if (room >= 8) return head + last.Substring(0, Math.Min(last.Length, room - 3)).TrimEnd(' ', ',') + "..." + suffix;
-        return (name + suffix).Length <= MaxHover ? name + suffix : name.Substring(0, MaxHover - suffix.Length - 3) + "..." + suffix;
+        string englishInfo = text.TalismanInfo(id)?.Replace("\n", " ") ?? "";
+        string[] Render(Loc loc) => new[] { loc.TalismanInfo(id) ?? englishInfo };
+        return new Placement(Kind.Talisman, id, name, Render, stats, flag, area, gx, gz, pos, source);
     }
 }
 
