@@ -69,7 +69,7 @@ Release zips: `powershell -ExecutionPolicy Bypass -File release\package.ps1 -Ver
   `menu/*/01_common.tpf.dcx`; the compass gets item icon 40900. Art is in `data/icons/`.
 - **Languages:** every unpacked `msg/<lang>` gets the mod's text (`Loc`): item names from that language's
   FMGs, stat/slot/menu words from the game's own `GR_MenuText`/`EventTextForTalk` entries (same ids as
-  the English words). Only "(collected)" and the compass description are the mod's own translations.
+  the English words). Only the compass's name and description and "(collected)" are the mod's own translations.
 - **Settings:** event flags 78990-78994 (stats), 78982-78985 (types) and 78910-78935 (derived).
 
 Limits: boss rewards, remembrances, shops and invader drops have no fixed spot and aren't marked;

@@ -70,7 +70,7 @@ Weapons count for every stat they scale with at grade D or better. Spells count 
 [/list]
 
 [size=4][b]Languages[/b][/size]
-Works in all 15 of the game's languages. Item names, stat names, armor slots and menu words use the game's own official translations; only the "(collected)" tag and the compass description were translated for this mod (corrections welcome). Arabic shows those two in English.
+Works in all 15 of the game's languages. Item names, stat names, armor slots and menu words use the game's own official translations; only the compass's name and description and the "(collected)" tag were translated for this mod (corrections welcome). Arabic shows those in English.
 
 [size=4][b]Coverage[/b][/size]
 Base game and Shadow of the Erdtree world pickups and unique enemy drops. Items from bosses, remembrances, shops and invaders have no fixed spot in the world, so they aren't marked.

@@ -127,7 +127,7 @@ static class Builder
             }
             var goodsText = new Dictionary<string, (int, string)>
             {
-                ["GoodsName"] = (CompassGoodsId, CompassName),
+                ["GoodsName"] = (CompassGoodsId, loc.CompassName),
                 ["GoodsInfo"] = (CompassGoodsId, loc.CompassDescription),
                 ["GoodsCaption"] = (CompassGoodsId, loc.CompassDescription),
             };

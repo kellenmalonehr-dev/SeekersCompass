@@ -31,11 +31,11 @@ static class GraceMenu
         Enum.GetValues<Stat>().Select(s => Builder.StatNames[s])
             .Concat(Enum.GetValues<Kind>().Select(k => Builder.KindNames[k])).ToList();
 
-    /// The menu's lines in one language: the game's own words for stats, item types and "Leave";
-    /// the mod's name stays as is.
+    /// The menu's lines in one language: the game's own words for stats, item types and "Leave",
+    /// and the compass's name in that language.
     public static Dictionary<int, string> Texts(Loc loc)
     {
-        var t = new Dictionary<int, string> { [EntryText] = "Seeker's Compass", [DoneText] = loc.Done };
+        var t = new Dictionary<int, string> { [EntryText] = loc.CompassName, [DoneText] = loc.Done };
         var labels = Enum.GetValues<Stat>().Select(loc.StatLong).Concat(Enum.GetValues<Kind>().Select(loc.KindLabel)).ToList();
         for (int i = 0; i < labels.Count; i++) t[ToggleText(i)] = labels[i];
         return t;

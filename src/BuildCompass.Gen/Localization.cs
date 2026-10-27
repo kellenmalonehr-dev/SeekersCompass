@@ -72,24 +72,36 @@ class Loc
         // No araae: the game stores Arabic as pre-joined presentation forms, which suggests its font
         // can't join plain Arabic letters, so Arabic falls back to English for the mod's own text.
     };
+    /// The item's name, also used for its grace menu line.
+    static readonly Dictionary<string, string> CompassNames = new()
+    {
+        ["engus"] = "Seeker's Compass", ["frafr"] = "Boussole du chercheur", ["deude"] = "Kompass des Suchenden",
+        ["itait"] = "Bussola del cercatore", ["spaes"] = "Brújula del buscador", ["spaar"] = "Brújula del buscador",
+        ["porbr"] = "Bússola do buscador", ["polpl"] = "Kompas poszukiwacza", ["rusru"] = "Компас искателя",
+        ["jpnjp"] = "探求者の羅針盤", ["zhocn"] = "探求者罗盘", ["zhotw"] = "探求者羅盤",
+        ["korkr"] = "탐구자의 나침반", ["thath"] = "เข็มทิศของผู้แสวงหา",
+    };
+    /// Written per language so the name takes that language's grammar (French "à la", Polish genitive
+    /// "Kompasu", Russian dative "Компасу").
     static readonly Dictionary<string, string> CompassDescriptions = new()
     {
         ["engus"] = "Allows you to access the Seeker's Compass at any site of grace.",
-        ["frafr"] = "Permet d'accéder au Seeker's Compass à n'importe quel site de grâce.",
-        ["deude"] = "Ermöglicht den Zugriff auf den Seeker's Compass an jedem Ort der Gnade.",
-        ["itait"] = "Permette di accedere al Seeker's Compass in qualsiasi luogo di grazia.",
-        ["spaes"] = "Permite acceder al Seeker's Compass en cualquier lugar de gracia.",
-        ["spaar"] = "Permite acceder al Seeker's Compass en cualquier sitio de gracia.",
-        ["porbr"] = "Permite acessar o Seeker's Compass em qualquer local de graça.",
-        ["polpl"] = "Umożliwia dostęp do Seeker's Compass w każdym miejscu łaski.",
-        ["rusru"] = "Открывает доступ к Seeker's Compass у любого места благодати.",
-        ["jpnjp"] = "どの祝福でも Seeker's Compass を利用できるようになる。",
-        ["zhocn"] = "可在任意赐福处使用 Seeker's Compass。",
-        ["zhotw"] = "可在任意賜福處使用 Seeker's Compass。",
-        ["korkr"] = "모든 축복에서 Seeker's Compass를 이용할 수 있다.",
-        ["thath"] = "สามารถใช้ Seeker's Compass ได้ที่จุดแห่งพรทุกแห่ง",
+        ["frafr"] = "Permet d'accéder à la Boussole du chercheur à n'importe quel site de grâce.",
+        ["deude"] = "Ermöglicht an jedem Ort der Gnade den Zugriff auf den Kompass des Suchenden.",
+        ["itait"] = "Permette di accedere alla Bussola del cercatore in qualsiasi luogo di grazia.",
+        ["spaes"] = "Permite acceder a la Brújula del buscador en cualquier lugar de gracia.",
+        ["spaar"] = "Permite acceder a la Brújula del buscador en cualquier sitio de gracia.",
+        ["porbr"] = "Permite acessar a Bússola do buscador em qualquer local de graça.",
+        ["polpl"] = "Umożliwia dostęp do Kompasu poszukiwacza w każdym miejscu łaski.",
+        ["rusru"] = "Открывает доступ к Компасу искателя у любого места благодати.",
+        ["jpnjp"] = "どの祝福でも探求者の羅針盤を利用できるようになる。",
+        ["zhocn"] = "可在任意赐福处使用探求者罗盘。",
+        ["zhotw"] = "可在任意賜福處使用探求者羅盤。",
+        ["korkr"] = "모든 축복에서 탐구자의 나침반을 이용할 수 있다.",
+        ["thath"] = "สามารถใช้เข็มทิศของผู้แสวงหาได้ที่จุดแห่งพรทุกแห่ง",
     };
     public string Collected => CollectedWords.GetValueOrDefault(Lang, CollectedWords["engus"]);
+    public string CompassName => CompassNames.GetValueOrDefault(Lang, CompassNames["engus"]);
     public string CompassDescription => CompassDescriptions.GetValueOrDefault(Lang, CompassDescriptions["engus"]);
 
     // ---- fitting text into the map tooltip ----------------------------------------------------
