@@ -95,23 +95,48 @@ path = "SeekersCompass"
 "@
 if ($seamless) { $profileText += "`n`n[[natives]]`npath = '$ersc'`n" }
 $profilePath = Join-Path $here "SeekersCompass.me3"
-if ($DryRun) { Write-Host "`n--- profile that would be written ---`n$profileText"; exit 0 }
+
+# ---- find Mod Engine 3 -----------------------------------------------------------------------
+# Only registry and file lookups here: native commands that print to stderr (like `assoc` when
+# nothing is registered) would abort the script under $ErrorActionPreference = "Stop".
+function Find-Me3 {
+    if ($Me3 -and (Test-Path $Me3)) { return $Me3 }
+    $onPath = Get-Command me3 -ErrorAction SilentlyContinue
+    if ($onPath) { return $onPath.Source }
+    # The installer's entry in Windows' installed-programs list.
+    $uninstall = "HKCU:\Software\Microsoft\Windows\CurrentVersion\Uninstall\*", "HKLM:\Software\Microsoft\Windows\CurrentVersion\Uninstall\*",
+        "HKLM:\Software\WOW6432Node\Microsoft\Windows\CurrentVersion\Uninstall\*"
+    foreach ($entry in Get-ItemProperty $uninstall -ErrorAction SilentlyContinue) {
+        if ($entry.DisplayName -notmatch '^(me3|Mod Engine 3)' -or -not $entry.InstallLocation) { continue }
+        $exe = Get-ChildItem $entry.InstallLocation -Recurse -Depth 3 -Filter "me3.exe" -ErrorAction SilentlyContinue | Select-Object -First 1
+        if ($exe) { return $exe.FullName }
+    }
+    return $null
+}
+# The installer also associates .me3 files with its launcher.
+$associated = (Test-Path "HKCU:\Software\Classes\.me3") -or (Test-Path "HKLM:\Software\Classes\.me3")
+$me3Exe = Find-Me3
+
+if ($DryRun) {
+    Write-Host "`n--- profile that would be written ---`n$profileText"
+    Write-Host "`nMod Engine 3: $(if ($me3Exe) { $me3Exe } elseif ($associated) { '.me3 file association' } else { 'NOT FOUND' })"
+    exit 0
+}
+if (-not $me3Exe -and -not $associated) {
+    Write-Host "`nMod Engine 3 was not found."
+    Write-Host "Install it from https://github.com/garyttierney/me3/releases and run this launcher again."
+    exit 1
+}
 [IO.File]::WriteAllText($profilePath, $profileText.Replace("`r`n", "`n").Replace("`n", "`r`n"), $utf8)
 
-# ---- launch through Mod Engine 3 -------------------------------------------------------------
+# ---- launch ----------------------------------------------------------------------------------
 Write-Host "`nLaunching Elden Ring with Seeker's Compass (offline - official servers are not available)..."
-if (-not $Me3) { $Me3 = (Get-Command me3 -ErrorAction SilentlyContinue).Source }
-if ($Me3) {
+if ($me3Exe) {
     # Like Convergence's launcher: only errors in me3's console, and run it detached so this
     # window closes instead of streaming me3's file log for the whole session.
     $env:ME3_CONSOLE_LOG_LEVEL = "error"
-    Start-Process -FilePath $Me3 -ArgumentList @("launch", "--auto-detect", "-p", "`"$profilePath`"") -WindowStyle Minimized
-    exit 0
+    Start-Process -FilePath $me3Exe -ArgumentList @("launch", "--auto-detect", "-p", "`"$profilePath`"") -WindowStyle Minimized
+} else {
+    Start-Process $profilePath
 }
-# The Mod Engine 3 installer associates .me3 files with its launcher.
-$assoc = cmd /c "assoc .me3" 2>$null
-if ($assoc) { Start-Process $profilePath; exit 0 }
-
-Write-Host "Mod Engine 3 was not found."
-Write-Host "Install it from https://github.com/garyttierney/me3/releases and run the launcher again."
-exit 1
+exit 0
