@@ -23,3 +23,6 @@ data/icons/style-reference.png
 data/icons/current-icons.png
 # Original download name of compass.png
 data/icons/9082ea00-*.png
+
+# Rust build output of the loader
+src/SeekersCompass.Loader/target/

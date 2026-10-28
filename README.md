@@ -10,8 +10,9 @@ Buy the **Seeker's Compass** from Merchant Kalé at the Church of Elleh (100 run
 Releases are on Nexus Mods. This repository is the source: a generator that reads the game's own
 data and writes the mod's files, plus the launcher scripts shipped in the release zips.
 
-**Offline only.** The mod runs through Mod Engine 3, which starts the game without Easy Anti-Cheat,
-so it can't reach official servers; and it never writes to the normal online save.
+**Offline only.** The mod only runs when the game starts without Easy Anti-Cheat (through Mod
+Engine 3, Seamless Co-op's launcher or an offline start), so it can't reach official servers; and
+it never writes to the normal online save.
 
 ## What's in the release zips
 
@@ -20,7 +21,9 @@ so it can't reach official servers; and it never writes to the normal online sav
 | `SeekersCompass/` | The mod's game data files (generated; see below) |
 | `Launch_SeekersCompass.bat` | Runs `SeekersCompass-launch.ps1` |
 | `SeekersCompass-launch.ps1` | Finds Elden Ring through Steam's library list, detects Seamless Co-op (`Game/SeamlessCoop/ersc.dll`), writes `SeekersCompass.me3` and starts Mod Engine 3. Without Seamless it uses its own save (`ER0000.skc`) and, once, offers to **copy** `ER0000.sl2` into it. It never writes to `ER0000.sl2` and downloads nothing. |
-| Convergence zip: `Install_SeekersCompass.bat`, `Uninstall_SeekersCompass.bat`, `SeekersCompass-setup.ps1` | Add or remove one marked `[[package]]` block in Convergence's `me3/*.me3` profiles (backed up first), so Convergence's own launcher loads the mod |
+| `Install_SeekersCompass.bat`, `Uninstall_SeekersCompass.bat`, `SeekersCompass-setup.ps1` (both zips) | Add or remove one marked package block in Mod Engine 3 profiles (backed up first), so players keep their own launcher. In a ConvergenceER folder it targets Convergence's `me3/*.me3` profiles (loading after `convergence-er`); otherwise the player picks profiles. It refuses profiles where another package replaces the same files (above all `regulation.bin`) or `start_online` is on, and offers a separate `savefile` to a profile that would play on `ER0000.sl2`. |
+
+| `Install_Without_ModEngine.bat`, `Uninstall_Without_ModEngine.bat`, `SeekersCompass-gamefolder.ps1`, `GameFolder/` (base-game zip) | For players without Mod Engine. Copies `GameFolder/xinput1_4.dll` into `ELDEN RING/Game` and the mod files plus `seekers_compass_loader.dll` into `Game/SeekersCompass/` (refusing if another mod owns either); the uninstaller removes only what it installed. See [the loader](#the-game-folder-loader-no-mod-engine). |
 
 Sources: [`release/templates/`](release/templates/). Zips are built by [`release/package.ps1`](release/package.ps1).
 
@@ -51,8 +54,40 @@ texconv. The game folder and Oodle DLL are found automatically; override with th
   carries that mod's own regulation, text, menu art and grace script.
 - `--out <folder>` sets the output folder.
 
+The game-folder loader also needs [Rust](https://rustup.rs) with the `x86_64-pc-windows-gnu` host
+(no Visual Studio needed); `setup.ps1` fetches the rest (Mod Engine 3's source, Zig):
+
+```
+bash src/SeekersCompass.Loader/build.sh
+```
+
 Release zips: `powershell -ExecutionPolicy Bypass -File release\package.ps1 -Version 1.0.0`
-(finds Convergence through the Convergence Launcher's settings, or pass `-Convergence <folder>`).
+(finds Convergence through the Convergence Launcher's settings, or pass `-Convergence <folder>`;
+needs the loader from `build.sh` in `out/loader`).
+
+## The game-folder loader (no Mod Engine)
+
+[`src/SeekersCompass.Loader`](src/SeekersCompass.Loader) lets the mod load when the game is started
+without Mod Engine, e.g. by Seamless Co-op's own launcher (which only loads Seamless).
+
+- **`proxy/` → `Game/xinput1_4.dll`** (C, built with Zig). The game imports `xinput1_4.dll` (by
+  ordinal), so it loads this at startup, before any game code runs. Every XInput call jumps to
+  Windows' own DLL. It then decides: Easy Anti-Cheat running, or Mod Engine 2/3 started the game
+  (or is loaded) → stay off. Otherwise it loads the Rust loader, telling it whether Seamless
+  Co-op's launcher (`ersc_launcher.exe`) started the game. Each decision goes to
+  `Game/SeekersCompass/launch.log`.
+- **`src/` → `Game/SeekersCompass/seekers_compass_loader.dll`** (Rust). Mod Engine 3 v0.13.0's own
+  mod host (MIT OR Apache-2.0), copied verbatim except for one allocator change noted in
+  `asset_hooks.rs`, plus its crates from `deps/me3` as path dependencies. `lib.rs` replaces Mod
+  Engine 3's launcher-driven attach with a fixed profile: the mod folder as the only package,
+  `ER0000.skc` as the save unless Seamless keeps its own `.co2`, Arxan neutralized, online play off.
+  Everything that needs worker threads waits for the game's entry point, outside the Windows
+  loader lock. Errors and panics are logged to `loader.log`, and the game then runs unmodded.
+- **Building on windows-gnu:** Rust's bundled GNU `dlltool` has no assembler next to it, so
+  `build-tools/` provides `dlltool`/`as` stand-ins that hand it Zig's. `RUSTC_BOOTSTRAP=1` enables
+  the closure features Mod Engine 3's hook code uses.
+- **After a game update:** update `deps/me3` (and the copied modules) to the Mod Engine 3 release
+  that supports it, rebuild, and ship.
 
 ## How it works
 
@@ -81,7 +116,10 @@ weapon stats use the uninfused scaling. Conflicts with other mods that replace `
 - [SoulsFormatsNEXT](https://github.com/soulsmods/SoulsFormatsNEXT) and
   [Paramdex](https://github.com/soulsmods/Paramdex) (soulsmods)
 - [DarkScript3](https://github.com/AinTunez/DarkScript3) (AinTunez) for EMEDF instruction definitions
-- [Mod Engine 3](https://github.com/garyttierney/me3)
+- [Mod Engine 3](https://github.com/garyttierney/me3) (garyttierney and contributors), whose mod host the
+  game-folder loader reuses (MIT OR Apache-2.0; licenses in `src/SeekersCompass.Loader`)
+- [dearxan](https://crates.io/crates/dearxan) (via Mod Engine 3) for neutralizing Arxan
+- [Zig](https://ziglang.org) and [Rust](https://www.rust-lang.org) toolchains for the loader
 - [DirectXTex texconv](https://github.com/microsoft/DirectXTex) (Microsoft)
 - The Convergence team
 - Icon art generated with ChatGPT; built with AI coding assistance

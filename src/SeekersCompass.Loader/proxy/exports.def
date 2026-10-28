@@ -1,0 +1,18 @@
+; Same exports and ordinals as Windows' xinput1_4.dll (the game imports ordinals 2 and 3).
+; Every one jumps to the real DLL.
+LIBRARY xinput1_4
+EXPORTS
+    XInputGetState              @2
+    XInputSetState              @3
+    XInputGetCapabilities       @4
+    XInputEnable                @5
+    XInputGetBatteryInformation @7
+    XInputGetKeystroke          @8
+    XInputGetAudioDeviceIds     @10
+    XInputOrdinal100            @100 NONAME
+    XInputOrdinal101            @101 NONAME
+    XInputOrdinal102            @102 NONAME
+    XInputOrdinal103            @103 NONAME
+    XInputOrdinal104            @104 NONAME
+    XInputOrdinal108            @108 NONAME
+    XInputOrdinal109            @109 NONAME

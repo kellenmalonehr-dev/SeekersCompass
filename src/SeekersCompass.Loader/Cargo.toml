@@ -1,0 +1,60 @@
+# Seeker's Compass loader: swaps in the mod's files without Mod Engine 3's launcher.
+# The file-swapping, save and Arxan code is Mod Engine 3's (MIT OR Apache-2.0, see LICENSE-*),
+# copied from its mod host (src/host*, asset_hooks, deferred, detour, executable, filesystem,
+# native, savefile) and its crates used as path dependencies from deps/me3 (pinned to v0.13.0).
+[package]
+name = "seekers_compass_loader"
+version = "0.1.0"
+edition = "2024"
+license = "MIT OR Apache-2.0"
+publish = false
+
+[lib]
+crate-type = ["cdylib"]
+
+[dependencies]
+me3-binary-analysis = { path = "../../deps/me3/crates/binary-analysis" }
+me3-launcher-attach-protocol = { path = "../../deps/me3/crates/launcher-attach-protocol" }
+me3-mod-host-assets = { path = "../../deps/me3/crates/mod-host-assets" }
+me3-mod-host-types = { path = "../../deps/me3/crates/mod-host-types" }
+me3-mod-protocol = { path = "../../deps/me3/crates/mod-protocol" }
+base64 = "0.22.1"
+closure-ffi = { version = "5.0", features = ["std", "tuple_trait"] }
+dearxan = "0.5.7"
+eyre = { version = "0.6", default-features = false, features = ["track-caller"] }
+from-singleton = "3"
+indexmap = { version = "2.14.0", features = ["serde"] }
+libloading = "0.9.0"
+miniz_oxide = { version = "0.9.0", features = ["std"] }
+pelite = "0.10"
+pkcs1 = { version = "0.7.5", features = ["std"] }
+rdvec = "0.2.1"
+regex = "1"
+retour = { git = "https://github.com/Hpmason/retour-rs" }
+seq-macro = "0.3.6"
+tempfile = "3"
+thiserror = "2"
+memchr = "2.8.2"
+tracing = { version = "0.1", features = ["release_max_level_debug"] }
+tracing-subscriber = { version = "0.3", default-features = false, features = ["fmt", "std"] }
+xxhash-rust = { version = "0.8", features = ["std", "xxh3"] }
+windows = { version = "0.62", features = [
+    "Wdk_System_Threading",
+    "Win32_Graphics_Gdi",
+    "Win32_Globalization",
+    "Win32_Security",
+    "Win32_Storage_FileSystem",
+    "Win32_System_Console",
+    "Win32_System_Diagnostics_Debug",
+    "Win32_System_LibraryLoader",
+    "Win32_System_Memory",
+    "Win32_System_SystemInformation",
+    "Win32_System_SystemServices",
+    "Win32_System_Threading",
+    "Win32_UI_WindowsAndMessaging",
+] }
+
+[profile.release]
+debug = false
+strip = true
+lto = true

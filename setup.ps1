@@ -2,14 +2,18 @@
 #   powershell -ExecutionPolicy Bypass -File setup.ps1
 # - deps/SoulsFormatsNEXT, deps/Paramdex, deps/DarkScript3 (git, pinned commits)
 # - patches/soulsformats-ignore-orphaned-bits.patch applied to SoulsFormatsNEXT
+# - deps/me3 (Mod Engine 3 v0.13.0, for the game-folder loader)
 # - tools/texconv/texconv.exe (Microsoft DirectXTex release)
+# - tools/zig (Zig 0.13.0, for the loader's proxy DLL)
 $ErrorActionPreference = "Stop"
 $root = $PSScriptRoot
 
 $deps = @(
     @{ Name = "SoulsFormatsNEXT"; Url = "https://github.com/soulsmods/SoulsFormatsNEXT.git"; Commit = "9e1c36f54962f80c143e3c1fe8a709204aefacf9" },
     @{ Name = "Paramdex";         Url = "https://github.com/soulsmods/Paramdex.git";         Commit = "ff7245e524329bc3eab00036723d2bd53384cedf" },
-    @{ Name = "DarkScript3";      Url = "https://github.com/AinTunez/DarkScript3.git";      Commit = "733f024253930b70db8e3d0039c4b53b6ee0a2d4" }
+    @{ Name = "DarkScript3";      Url = "https://github.com/AinTunez/DarkScript3.git";      Commit = "733f024253930b70db8e3d0039c4b53b6ee0a2d4" },
+    # Mod Engine 3 v0.13.0: its crates are path dependencies of the game-folder loader.
+    @{ Name = "me3";              Url = "https://github.com/garyttierney/me3.git";          Commit = "989b522214e39c83d701f4182c4f0a86ad79a30a" }
 )
 New-Item -ItemType Directory -Force (Join-Path $root "deps") | Out-Null
 foreach ($d in $deps) {
@@ -37,4 +41,19 @@ if (-not (Test-Path $texconv)) {
     Invoke-WebRequest "https://github.com/microsoft/DirectXTex/releases/download/may2026/texconv.exe" -OutFile $texconv
 }
 
+# Zig's C compiler builds the loader's proxy DLL and stands in for the GNU assembler (see
+# src/SeekersCompass.Loader/build.sh). Checked against ziglang.org's published SHA-256.
+$zig = Join-Path $root "tools\zig\zig.exe"
+if (-not (Test-Path $zig)) {
+    Write-Host "zig: downloading 0.13.0"
+    $zip = Join-Path $root "tools\zig.zip"
+    Invoke-WebRequest "https://ziglang.org/download/0.13.0/zig-windows-x86_64-0.13.0.zip" -OutFile $zip
+    if ((Get-FileHash $zip -Algorithm SHA256).Hash -ne "D859994725EF9402381E557C60BB57497215682E355204D754EE3DF75EE3C158") { throw "zig download checksum mismatch" }
+    Expand-Archive $zip (Join-Path $root "tools") -Force
+    Rename-Item (Join-Path $root "tools\zig-windows-x86_64-0.13.0") "zig"
+    Remove-Item $zip
+}
+
 Write-Host "`nDone. Build with:  dotnet build src\BuildCompass.Gen -c Release"
+Write-Host "The game-folder loader also needs Rust (rustup, host x86_64-pc-windows-gnu); then run:"
+Write-Host "  bash src/SeekersCompass.Loader/build.sh"
