@@ -32,13 +32,14 @@ Copy-Item (Join-Path $PSScriptRoot "templates\SeekersCompass-launch.ps1") $v
 foreach ($f in "SeekersCompass-setup.ps1", "Install_SeekersCompass.bat", "Uninstall_SeekersCompass.bat") {
     Copy-Item (Join-Path $PSScriptRoot "templates\$f") $v
 }
-# Or, without Mod Engine: the game-folder loader (built by src/SeekersCompass.Loader/build.sh).
+# Or, without Mod Engine: the game-folder loader (built by src/SeekersCompass.Loader/build.sh),
+# shared with Grace Loadouts (both install into Game\OfflineMods; the newer loader is kept).
 $loader = Join-Path $root "out\loader"
-foreach ($f in "xinput1_4.dll", "SeekersCompass\seekers_compass_loader.dll") {
+foreach ($f in "xinput1_4.dll", "OfflineMods\offline_mods_loader.dll", "loader-version.txt") {
     if (-not (Test-Path (Join-Path $loader $f))) { throw "out\loader\$f is missing: run  bash src/SeekersCompass.Loader/build.sh  first." }
 }
 New-Item -ItemType Directory -Force (Join-Path $v "GameFolder") | Out-Null
-Copy-Item (Join-Path $loader "xinput1_4.dll"), (Join-Path $loader "SeekersCompass\seekers_compass_loader.dll") (Join-Path $v "GameFolder")
+Copy-Item (Join-Path $loader "xinput1_4.dll"), (Join-Path $loader "OfflineMods\offline_mods_loader.dll"), (Join-Path $loader "loader-version.txt") (Join-Path $v "GameFolder")
 foreach ($f in "SeekersCompass-gamefolder.ps1", "Install_Without_ModEngine.bat", "Uninstall_Without_ModEngine.bat") {
     Copy-Item (Join-Path $PSScriptRoot "templates\$f") $v
 }

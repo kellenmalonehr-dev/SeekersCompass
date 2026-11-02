@@ -670,6 +670,38 @@ dependencies = [
 ]
 
 [[package]]
+name = "offline_mods_loader"
+version = "0.2.0"
+dependencies = [
+ "base64",
+ "closure-ffi",
+ "dearxan",
+ "eyre",
+ "from-singleton",
+ "indexmap",
+ "libloading",
+ "me3-binary-analysis",
+ "me3-launcher-attach-protocol",
+ "me3-mod-host-assets",
+ "me3-mod-host-types",
+ "me3-mod-protocol",
+ "memchr",
+ "miniz_oxide",
+ "pelite",
+ "pkcs1",
+ "rdvec",
+ "regex",
+ "retour",
+ "seq-macro",
+ "tempfile",
+ "thiserror 2.0.18",
+ "tracing",
+ "tracing-subscriber",
+ "windows 0.62.2",
+ "xxhash-rust",
+]
+
+[[package]]
 name = "once_cell"
 version = "1.21.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1008,38 +1040,6 @@ name = "scopeguard"
 version = "1.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "94143f37725109f92c262ed2cf5e59bce7498c01bcc1502d7b9afe439a4e9f49"
-
-[[package]]
-name = "seekers_compass_loader"
-version = "0.1.0"
-dependencies = [
- "base64",
- "closure-ffi",
- "dearxan",
- "eyre",
- "from-singleton",
- "indexmap",
- "libloading",
- "me3-binary-analysis",
- "me3-launcher-attach-protocol",
- "me3-mod-host-assets",
- "me3-mod-host-types",
- "me3-mod-protocol",
- "memchr",
- "miniz_oxide",
- "pelite",
- "pkcs1",
- "rdvec",
- "regex",
- "retour",
- "seq-macro",
- "tempfile",
- "thiserror 2.0.18",
- "tracing",
- "tracing-subscriber",
- "windows 0.62.2",
- "xxhash-rust",
-]
 
 [[package]]
 name = "seq-macro"

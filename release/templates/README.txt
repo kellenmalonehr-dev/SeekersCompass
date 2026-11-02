@@ -37,8 +37,8 @@ B) With Mod Engine 3, added to a profile you already launch
 
 C) Without Mod Engine (e.g. Seamless Co-op's own launcher, Elden Mod Loader setups)
    Close the game and run Install_Without_ModEngine.bat. It finds Elden Ring through Steam
-   and adds xinput1_4.dll and a SeekersCompass folder to ELDEN RING\Game. Then start the
-   game the way you normally do:
+   and adds xinput1_4.dll and an OfflineMods folder to ELDEN RING\Game (moving a 1.2
+   install out of Game\SeekersCompass). Then start the game the way you normally do:
    - Seamless Co-op's launcher (ersc_launcher.exe): with your Seamless characters.
    - eldenring.exe directly, or Steam with an anti-cheat toggler: on the mod's own save
      (ER0000.skc), which starts as a copy of your characters.
@@ -47,7 +47,7 @@ C) Without Mod Engine (e.g. Seamless Co-op's own launcher, Elden Mod Loader setu
    so Elden Mod Loader's load_delay doesn't matter. The file swapping is Mod Engine 3's
    own code (see GameFolder\ModEngine3-LICENSE-*), so it keeps the game offline the same way.
    Run Install_Without_ModEngine.bat again to update; Uninstall_Without_ModEngine.bat
-   removes both. If another mod already uses Game\xinput1_4.dll, use option A or B.
+   removes it. If another mod already uses Game\xinput1_4.dll, use option A or B.
    Like any DLL in the game folder, Easy Anti-Cheat may refuse to start the normal online
    game while it's installed: uninstall it before playing online.
 
@@ -66,5 +66,8 @@ NOTES
 - Conflicts with mods that also replace regulation.bin, the grace menu talk script
   (script/talk/m00_00_00_00), the item/menu text (msg/*) or menu/*/01_common.
   Convergence players: use the Convergence version of this mod instead.
+- Grace Loadouts also adds a grace menu line. Install both the same way (both in a Mod
+  Engine 3 profile, or both with Install_Without_ModEngine.bat), in either order: the
+  installers merge the two menus.
 - Seamless Co-op's own launcher only loads Seamless itself; with option C installed,
   Seeker's Compass loads alongside it.

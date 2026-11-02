@@ -89,7 +89,7 @@ Extract [b]SeekersCompass-x.y.z.zip[/b] to its own folder (not inside ELDEN RING
 [/list]
 [b]B) With Mod Engine 3, alongside other mods you already launch through it:[/b] run [b]Install_SeekersCompass.bat[/b] and pick that setup's [i].me3[/i] profile (or drag profiles onto it), then keep launching the way you already do. It adds one marked block and keeps a backup. It refuses profiles where it would break another mod (mods that change regulation.bin or the same files) or that switch online play on. If the profile would play on your normal save, it offers to give it its own save. [b]Uninstall_SeekersCompass.bat[/b] takes it back out.
 
-[b]C) Without Mod Engine (Seamless Co-op's own launcher, Elden Mod Loader setups):[/b] close the game and run [b]Install_Without_ModEngine.bat[/b]. It finds Elden Ring through Steam and adds [i]xinput1_4.dll[/i] and a [i]SeekersCompass[/i] folder to ELDEN RING\Game. Then start the game the way you normally do:
+[b]C) Without Mod Engine (Seamless Co-op's own launcher, Elden Mod Loader setups):[/b] close the game and run [b]Install_Without_ModEngine.bat[/b]. It finds Elden Ring through Steam and adds [i]xinput1_4.dll[/i] and an [i]OfflineMods[/i] folder to ELDEN RING\Game (Grace Loadouts installs into the same folder). Then start the game the way you normally do:
 [list]
 [*][b]Seamless Co-op's launcher (ersc_launcher.exe):[/b] Seeker's Compass loads alongside Seamless, with your Seamless characters.
 [*][b]eldenring.exe directly, or Steam with an anti-cheat toggler:[/b] on the mod's own save, which starts as a copy of your characters.
@@ -114,6 +114,7 @@ Option B: run Uninstall_SeekersCompass.bat. Option C: run Uninstall_Without_ModE
 [*]Works with Seamless Co-op. Everyone in a session should run the same version.
 [*]Works alongside other Mod Engine 3 mods that don't replace the same files (e.g. cosmetic parts mods and DLL mods): add it to their profile with Install_SeekersCompass.bat.
 [*]Works with Elden Mod Loader DLL mods (option C, or Mod Engine 3 natives with A/B).
+[*]Works with [b]Grace Loadouts[/b]: both mods add a grace menu line, and their installers merge the two menus automatically, whichever you install first (in a Mod Engine 3 profile, Convergence's included, or in the game folder).
 [*]Offline / Seamless Co-op only (see the top of this page).
 [*]Conflicts with mods that replace [i]regulation.bin[/i], the grace menu talk script ([i]script/talk/m00_00_00_00[/i]), item/menu text ([i]msg/engus[/i]) or [i]menu/*/01_common[/i]. Convergence players: use the Convergence file.
 [*]The Convergence file only works with the Convergence version it was built for.
@@ -150,6 +151,8 @@ Upload from `release/images/` (1920x1080). Suggested order:
 
 ## Changelog
 
+**1.3.0** — Works together with Grace Loadouts: the installers and launcher let it merge its grace menu with Seeker's Compass's. The no-Mod Engine option now installs into Game\OfflineMods (shared with Grace Loadouts) and moves a 1.2 install there.
+
 **1.2.0** — Play without Mod Engine: Install_Without_ModEngine.bat lets Seamless Co-op's own launcher (and other non-Mod Engine setups) load Seeker's Compass. Install_SeekersCompass.bat adds it to any Mod Engine 3 profile you already launch, with safety checks. The Convergence file is rebuilt for The Convergence 3.0.4.0.
 
 **1.1.0** — All 15 game languages: hover text uses each language's item names and the game's own stat, armor slot and menu words.
@@ -160,4 +163,5 @@ Upload from `release/images/` (1920x1080). Suggested order:
 
 - Set **Permissions** on Nexus (e.g. whether others may reupload or modify).
 - Tick the **AI-generated content** disclosure: the icons were made with ChatGPT, and the mod was built with AI coding help.
+- 1.3.0's loader is renamed offline_mods_loader.dll (same code plus loading several mods' folders and DLLs from Game\OfflineMods); expect the file review again.
 - 1.2.0 ships two DLLs (GameFolder/xinput1_4.dll and seekers_compass_loader.dll), which will likely trigger Nexus' file review again. Point the reviewer at src/SeekersCompass.Loader in the GitHub source (push the 1.2.0 commit first): the proxy is ~150 lines of C and the loader is Mod Engine 3 v0.13.0's own mod-host code.

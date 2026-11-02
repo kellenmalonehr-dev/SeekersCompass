@@ -23,7 +23,7 @@ it never writes to the normal online save.
 | `SeekersCompass-launch.ps1` | Finds Elden Ring through Steam's library list, detects Seamless Co-op (`Game/SeamlessCoop/ersc.dll`), writes `SeekersCompass.me3` and starts Mod Engine 3. Without Seamless it uses its own save (`ER0000.skc`) and, once, offers to **copy** `ER0000.sl2` into it. It never writes to `ER0000.sl2` and downloads nothing. |
 | `Install_SeekersCompass.bat`, `Uninstall_SeekersCompass.bat`, `SeekersCompass-setup.ps1` (both zips) | Add or remove one marked package block in Mod Engine 3 profiles (backed up first), so players keep their own launcher. In a ConvergenceER folder it targets Convergence's `me3/*.me3` profiles (loading after `convergence-er`); otherwise the player picks profiles. It refuses profiles where another package replaces the same files (above all `regulation.bin`) or `start_online` is on, and offers a separate `savefile` to a profile that would play on `ER0000.sl2`. |
 
-| `Install_Without_ModEngine.bat`, `Uninstall_Without_ModEngine.bat`, `SeekersCompass-gamefolder.ps1`, `GameFolder/` (base-game zip) | For players without Mod Engine. Copies `GameFolder/xinput1_4.dll` into `ELDEN RING/Game` and the mod files plus `seekers_compass_loader.dll` into `Game/SeekersCompass/` (refusing if another mod owns either); the uninstaller removes only what it installed. See [the loader](#the-game-folder-loader-no-mod-engine). |
+| `Install_Without_ModEngine.bat`, `Uninstall_Without_ModEngine.bat`, `SeekersCompass-gamefolder.ps1`, `GameFolder/` (base-game zip) | For players without Mod Engine. Copies `GameFolder/xinput1_4.dll` into `ELDEN RING/Game`, `offline_mods_loader.dll` into `Game/OfflineMods/` (unless a newer one is there) and the mod files into `Game/OfflineMods/SeekersCompass/` (refusing if another mod owns the proxy); moves a 1.2 install out of `Game/SeekersCompass/`. The uninstaller removes only what it installed, and the shared loader only once no mod uses it. See [the loader](#the-game-folder-loader-no-mod-engine). |
 
 Sources: [`release/templates/`](release/templates/). Zips are built by [`release/package.ps1`](release/package.ps1).
 
@@ -68,21 +68,32 @@ needs the loader from `build.sh` in `out/loader`).
 ## The game-folder loader (no Mod Engine)
 
 [`src/SeekersCompass.Loader`](src/SeekersCompass.Loader) lets the mod load when the game is started
-without Mod Engine, e.g. by Seamless Co-op's own launcher (which only loads Seamless).
+without Mod Engine, e.g. by Seamless Co-op's own launcher (which only loads Seamless). It is
+shared with Grace Loadouts (the author's loadout mod): every mod in
+`Game/OfflineMods/<mod>/` with a `package.ini` loads (see `src/packages.rs`), and both mods'
+installers keep the newer loader (`loader-version.txt`).
 
 - **`proxy/` → `Game/xinput1_4.dll`** (C, built with Zig). The game imports `xinput1_4.dll` (by
   ordinal), so it loads this at startup, before any game code runs. Every XInput call jumps to
   Windows' own DLL. It then decides: Easy Anti-Cheat running, or Mod Engine 2/3 started the game
   (or is loaded) → stay off. Otherwise it loads the Rust loader, telling it whether Seamless
   Co-op's launcher (`ersc_launcher.exe`) started the game. Each decision goes to
-  `Game/SeekersCompass/launch.log`.
-- **`src/` → `Game/SeekersCompass/seekers_compass_loader.dll`** (Rust). Mod Engine 3 v0.13.0's own
+  `Game/OfflineMods/launch.log`. (Seeker's Compass 1.2's proxy loaded
+  `Game/SeekersCompass/seekers_compass_loader.dll`; installers replace it, and the new loader still
+  loads a 1.2 install's folder.)
+- **`src/` → `Game/OfflineMods/offline_mods_loader.dll`** (Rust). Mod Engine 3 v0.13.0's own
   mod host (MIT OR Apache-2.0), copied verbatim except for one allocator change noted in
   `asset_hooks.rs`, plus its crates from `deps/me3` as path dependencies. `lib.rs` replaces Mod
-  Engine 3's launcher-driven attach with a fixed profile: the mod folder as the only package,
-  `ER0000.skc` as the save unless Seamless keeps its own `.co2`, Arxan neutralized, online play off.
-  Everything that needs worker threads waits for the game's entry point, outside the Windows
-  loader lock. Errors and panics are logged to `loader.log`, and the game then runs unmodded.
+  Engine 3's launcher-driven attach with a fixed profile: the installed mods as packages (by their
+  `order`; a merged menu falls back to its mod's own copy if the mod it was merged with changed),
+  their DLLs (`native`), `ER0000.skc` as the save unless Seamless keeps its own `.co2`, Arxan
+  neutralized, online play off. Everything that needs worker threads waits for the game's entry
+  point, outside the Windows loader lock. Errors and panics are logged to `loader.log`, and the
+  game then runs unmodded.
+- **With Grace Loadouts:** both mods replace the grace talk script and menu text. Grace Loadouts'
+  installers rebuild its menu on top of ours; ours call its `refresh` after installing or removing
+  Seeker's Compass (game folder, Mod Engine 3 profiles, and on each launch of
+  `Launch_SeekersCompass.bat`, which keeps Grace Loadouts' block in `SeekersCompass.me3`).
 - **Building on windows-gnu:** Rust's bundled GNU `dlltool` has no assembler next to it, so
   `build-tools/` provides `dlltool`/`as` stand-ins that hand it Zig's. `RUSTC_BOOTSTRAP=1` enables
   the closure features Mod Engine 3's hook code uses.

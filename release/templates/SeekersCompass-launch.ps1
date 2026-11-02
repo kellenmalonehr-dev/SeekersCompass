@@ -95,6 +95,12 @@ path = "SeekersCompass"
 "@
 if ($seamless) { $profileText += "`n`n[[natives]]`npath = '$ersc'`n" }
 $profilePath = Join-Path $here "SeekersCompass.me3"
+# Grace Loadouts can be added to this profile (its Install_GraceLoadouts.bat): keep its block.
+$graceLoadouts = $null
+if (Test-Path $profilePath) {
+    $m = [regex]::Match([IO.File]::ReadAllText($profilePath), "# >>> Grace Loadouts[\s\S]*?# <<< Grace Loadouts")
+    if ($m.Success) { $graceLoadouts = $m.Value -replace "\r\n", "`n"; $profileText = $profileText.TrimEnd() + "`n`n$graceLoadouts`n" }
+}
 
 # ---- find Mod Engine 3 -----------------------------------------------------------------------
 # Only registry and file lookups here: native commands that print to stderr (like `assoc` when
@@ -128,6 +134,12 @@ if (-not $me3Exe -and -not $associated) {
     exit 1
 }
 [IO.File]::WriteAllText($profilePath, $profileText.Replace("`r`n", "`n").Replace("`n", "`r`n"), $utf8)
+if ($graceLoadouts -and $graceLoadouts -match "(?m)^# setup: (.+?)\r?$" -and (Test-Path $Matches[1])) {
+    # After a Seeker's Compass update its grace menu changed: Grace Loadouts re-merges onto it.
+    & powershell -NoProfile -ExecutionPolicy Bypass -File $Matches[1] -Action refresh $profilePath | ForEach-Object { Write-Host "Grace Loadouts - $_" }
+} elseif ($graceLoadouts) {
+    Write-Host "Grace Loadouts' folder has moved: run its Install_GraceLoadouts.bat again and choose SeekersCompass.me3."
+}
 
 # ---- launch ----------------------------------------------------------------------------------
 Write-Host "`nLaunching Elden Ring with Seeker's Compass (offline - official servers are not available)..."

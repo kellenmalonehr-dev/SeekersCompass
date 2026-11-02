@@ -1,10 +1,11 @@
-# Seeker's Compass loader: swaps in the mod's files without Mod Engine 3's launcher.
+# Offline mods loader (Seeker's Compass, Grace Loadouts): swaps in the files of every mod in
+# Game\OfflineMods without Mod Engine 3's launcher, and loads their DLLs.
 # The file-swapping, save and Arxan code is Mod Engine 3's (MIT OR Apache-2.0, see LICENSE-*),
 # copied from its mod host (src/host*, asset_hooks, deferred, detour, executable, filesystem,
 # native, savefile) and its crates used as path dependencies from deps/me3 (pinned to v0.13.0).
 [package]
-name = "seekers_compass_loader"
-version = "0.1.0"
+name = "offline_mods_loader"
+version = "0.2.0"
 edition = "2024"
 license = "MIT OR Apache-2.0"
 publish = false

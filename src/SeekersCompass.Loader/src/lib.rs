@@ -1,14 +1,15 @@
-//! Seeker's Compass loader: Mod Engine 3's file swapping, without its launcher.
+//! Offline mods loader (Seeker's Compass, Grace Loadouts): Mod Engine 3's file swapping, without
+//! its launcher, for every mod installed in Game\OfflineMods.
 //!
 //! The game folder's xinput1_4.dll (proxy/, a small C proxy that also forwards XInput) loads this
 //! only when it is safe to: no Easy Anti-Cheat, and no Mod Engine already loading mods. It then
-//! calls [`seekers_compass_attach`] while the game is still starting up, before any game code
+//! calls [`offline_mods_attach`] while the game is still starting up, before any game code
 //! has run - the same point at which Mod Engine 3 attaches to a suspended game.
 //!
 //! From there this follows Mod Engine 3's own attach (crates/mod-host/src/lib.rs, v0.13.0) with
-//! a fixed profile: one package (the mod folder), the mod's own save unless Seamless Co-op keeps
-//! its own, Arxan neutralized, online play off. Anything that needs worker threads waits until
-//! the game's entry point, outside the Windows loader lock.
+//! a fixed profile: the installed packages (see [`packages`]), the mods' own save unless Seamless
+//! Co-op keeps its own, Arxan neutralized, online play off. Anything that needs worker threads
+//! waits until the game's entry point, outside the Windows loader lock; mods' DLLs load there too.
 #![feature(fn_traits)]
 #![feature(tuple_trait)]
 #![feature(unboxed_closures)]
@@ -44,19 +45,21 @@ mod executable;
 mod filesystem;
 mod host;
 mod native;
+mod packages;
 mod savefile;
 
-/// The mod's own save, used unless Seamless Co-op (which keeps its own) is being started.
+/// The mods' own save, used unless Seamless Co-op (which keeps its own) is being started.
+/// (Seeker's Compass's name; kept so existing offline characters stay where they are.)
 const MOD_SAVEFILE: &str = "ER0000.skc";
 
-/// Called once by the proxy, during the game's startup. `mod_dir` is the package folder (UTF-16,
+/// Called once by the proxy, during the game's startup. `mods_dir` is Game\OfflineMods (UTF-16,
 /// `len` units); `seamless` says Seamless Co-op's launcher started the game. Returns false if
 /// nothing could be set up; the game then runs unmodded.
 #[unsafe(no_mangle)]
-pub unsafe extern "C" fn seekers_compass_attach(mod_dir: *const u16, len: usize, seamless: bool) -> bool {
-    let mod_dir = PathBuf::from(OsString::from_wide(unsafe { slice::from_raw_parts(mod_dir, len) }));
+pub unsafe extern "C" fn offline_mods_attach(mods_dir: *const u16, len: usize, seamless: bool) -> bool {
+    let mods_dir = PathBuf::from(OsString::from_wide(unsafe { slice::from_raw_parts(mods_dir, len) }));
 
-    if let Ok(log) = File::create(mod_dir.join("loader.log")) {
+    if let Ok(log) = File::create(mods_dir.join("loader.log")) {
         let _ = tracing_subscriber::fmt()
             .with_writer(Mutex::new(log))
             .with_ansi(false)
@@ -64,7 +67,7 @@ pub unsafe extern "C" fn seekers_compass_attach(mod_dir: *const u16, len: usize,
             .try_init();
     }
 
-    guarded("Seeker's Compass could not start; the game runs unmodded", || attach(mod_dir, seamless))
+    guarded("the offline mods could not start; the game runs unmodded", || attach(mods_dir, seamless))
 }
 
 /// Runs a setup step, logging an error or panic instead of letting it take the game down.
@@ -87,16 +90,22 @@ fn guarded(what: &str, step: impl FnOnce() -> Result<(), eyre::Error>) -> bool {
     }
 }
 
-fn attach(mod_dir: PathBuf, seamless: bool) -> Result<(), eyre::Error> {
+fn attach(mods_dir: PathBuf, seamless: bool) -> Result<(), eyre::Error> {
     // Mod Engine 3's launcher tells its game-type code which game it started (me3_env::GameVars).
     // SAFETY: the game's own threads haven't started yet.
     unsafe { std::env::set_var("ME3_GAME_LAUNCHED", r#""EldenRing""#) };
+
+    let installed = packages::scan(&mods_dir);
+    if installed.is_empty() {
+        eyre::bail!("no mods installed in {}", mods_dir.display());
+    }
+    let natives: Vec<PathBuf> = installed.iter().filter_map(|p| p.native.clone()).collect();
 
     let config = Arc::new(AttachConfig {
         game: Game::EldenRing,
         natives: Vec::new(),
         early_natives: Vec::new(),
-        packages: vec![Package::new(mod_dir.clone())],
+        packages: installed.iter().map(|p| Package::new(p.files.clone())).collect(),
         savefile: (!seamless).then(|| MOD_SAVEFILE.to_owned()),
         cache_path: None,
         suspend: false,
@@ -109,7 +118,7 @@ fn attach(mod_dir: PathBuf, seamless: bool) -> Result<(), eyre::Error> {
         skip_steam_init: false,
         property_overrides: IndexMap::new(),
     });
-    info!(?mod_dir, seamless, "Seeker's Compass loader attaching");
+    info!(?mods_dir, seamless, mods = installed.len(), "offline mods loader attaching");
 
     // SAFETY: called before the game's entry point, so no game code is running yet.
     let exe = unsafe { Executable::new() };
@@ -122,8 +131,23 @@ fn attach(mod_dir: PathBuf, seamless: bool) -> Result<(), eyre::Error> {
 
     // Neutralizes Arxan at the entry point, then runs the rest there (outside the loader lock).
     defer_init(Span::current(), Deferred::BeforeMain, move || {
-        guarded("Seeker's Compass could not start; the game runs unmodded", || before_main(config, exe));
+        guarded("the offline mods could not start; the game runs unmodded", || before_main(config, exe));
+        load_natives(&natives);
     })
+}
+
+/// Mods' own DLLs (e.g. grace_loadouts.dll), loaded for the rest of the game's life.
+fn load_natives(natives: &[PathBuf]) {
+    for path in natives {
+        // SAFETY: the DLLs come from installed mods, which expect to be loaded into the game.
+        match unsafe { libloading::Library::new(path) } {
+            Ok(lib) => {
+                std::mem::forget(lib);
+                info!(?path, "loaded");
+            }
+            Err(e) => error!(?path, "error" = %e, "could not load"),
+        }
+    }
 }
 
 fn before_main(config: Arc<AttachConfig>, exe: Executable) -> Result<(), eyre::Error> {
@@ -135,7 +159,7 @@ fn before_main(config: Arc<AttachConfig>, exe: Executable) -> Result<(), eyre::E
     filesystem::attach_override(mapping.clone())?;
 
     defer_init(Span::current(), Deferred::AfterMain, move || {
-        guarded("Seeker's Compass could not swap the game's files", || after_main(config, exe, mapping));
+        guarded("the offline mods could not swap the game's files", || after_main(config, exe, mapping));
     })?;
 
     info!("file and save hooks in place");

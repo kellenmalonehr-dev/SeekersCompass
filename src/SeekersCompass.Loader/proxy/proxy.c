@@ -1,13 +1,16 @@
-// Seeker's Compass proxy: the game loads this as xinput1_4.dll from its own folder at startup,
-// before any game code runs. Every XInput call is passed on to Windows' real xinput1_4.dll.
+// Offline mods proxy (Seeker's Compass, Grace Loadouts): the game loads this as xinput1_4.dll
+// from its own folder at startup, before any game code runs. Every XInput call is passed on to
+// Windows' real xinput1_4.dll.
 //
-// It then decides, without changing anything, whether Seeker's Compass may load:
+// It then decides, without changing anything, whether the mods in OfflineMods\ may load:
 //   - Easy Anti-Cheat is running                  -> no (the game may be going online);
 //   - Mod Engine 2/3 started or is in the game    -> no (it loads mods itself, e.g. Convergence);
 //   - otherwise (Seamless Co-op's launcher, or an offline start) -> load the Rust loader in
-//     SeekersCompass\ and let it swap in the mod's files the way Mod Engine 3 does. Unless
-//     Seamless Co-op's launcher started the game, the mod plays on its own save (ER0000.skc).
-// Each decision is appended to SeekersCompass\launch.log.
+//     OfflineMods\ and let it swap in the mods' files the way Mod Engine 3 does. Unless
+//     Seamless Co-op's launcher started the game, the mods play on their own save (ER0000.skc).
+// Each decision is appended to OfflineMods\launch.log.
+// (Installers recognize this proxy by the loader's name below; Seeker's Compass 1.2's proxy
+// named seekers_compass_loader.dll instead, so its uninstaller leaves this one alone.)
 #define WIN32_LEAN_AND_MEAN
 #include <windows.h>
 #include <tlhelp32.h>
@@ -96,9 +99,9 @@ static void Start(HMODULE self) {
     wcscpy(gameDir, exe); *(WCHAR *)FileName(gameDir) = 0;
     if (!GetModuleFileNameW(self, dll, MAX_PATH)) return;
     wcscpy(modDir, dll); *(WCHAR *)FileName(modDir) = 0;
-    wcscat(modDir, L"SeekersCompass");
-    _snwprintf(path, MAX_PATH, L"%ls\\seekers_compass_loader.dll", modDir);
-    if (GetFileAttributesW(path) == INVALID_FILE_ATTRIBUTES) return; // mod not installed here
+    wcscat(modDir, L"OfflineMods");
+    _snwprintf(path, MAX_PATH, L"%ls\\offline_mods_loader.dll", modDir);
+    if (GetFileAttributesW(path) == INVALID_FILE_ATTRIBUTES) return; // no mods installed here
 
     WCHAR logPath[MAX_PATH];
     _snwprintf(logPath, MAX_PATH, L"%ls\\launch.log", modDir);
@@ -109,7 +112,7 @@ static void Start(HMODULE self) {
     Log(L"%04d-%02d-%02d %02d:%02d:%02d game started by %ls", t.wYear, t.wMonth, t.wDay, t.wHour, t.wMinute, t.wSecond,
         parent[0] ? parent : L"(unknown)");
 
-    if (eac) { Log(L"  Easy Anti-Cheat is running: Seeker's Compass stays off."); goto done; }
+    if (eac) { Log(L"  Easy Anti-Cheat is running: the mods stay off."); goto done; }
     if (_wcsnicmp(parent, L"me3", 3) == 0 || _wcsnicmp(parent, L"modengine", 9) == 0 ||
         GetModuleHandleW(L"me3_mod_host.dll") || GetModuleHandleW(L"modengine2.dll")) {
         Log(L"  Mod Engine is loading mods: this loader stays off."); goto done;
@@ -120,10 +123,10 @@ static void Start(HMODULE self) {
     BOOL seamless = _wcsicmp(parent, L"ersc_launcher.exe") == 0 && GetFileAttributesW(ersc) != INVALID_FILE_ATTRIBUTES;
 
     HMODULE loader = LoadLibraryW(path);
-    AttachFn attach = loader ? (AttachFn)(void *)GetProcAddress(loader, "seekers_compass_attach") : NULL;
-    if (!attach) { Log(L"  could not load seekers_compass_loader.dll (error %lu): the game runs unmodded.", GetLastError()); goto done; }
+    AttachFn attach = loader ? (AttachFn)(void *)GetProcAddress(loader, "offline_mods_attach") : NULL;
+    if (!attach) { Log(L"  could not load offline_mods_loader.dll (error %lu): the game runs unmodded.", GetLastError()); goto done; }
     BOOL ok = attach(modDir, wcslen(modDir), seamless);
-    Log(ok ? L"  Seeker's Compass on%ls (details in loader.log)." : L"  the loader failed to start%ls: the game runs unmodded (see loader.log).",
+    Log(ok ? L"  mods on%ls (details in loader.log)." : L"  the loader failed to start%ls: the game runs unmodded (see loader.log).",
         seamless ? L", with Seamless Co-op's save" : L", on its own save (ER0000.skc)");
 done:
     CloseHandle(g_log);

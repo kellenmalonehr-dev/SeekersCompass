@@ -97,6 +97,8 @@ function Install-Into([string]$path) {
     $ourFiles = Get-RelativeFiles $ours | Where-Object { $_ -ne "requires-package.txt" }
     foreach ($other in $p.Packages) {
         if (-not $other.full -or ($base -and $other -eq $base) -or -not (Test-Path $other.full)) { continue }
+        # Grace Loadouts shares the grace menu files but rebuilds its copy on top of ours (below).
+        if ($other.id -eq "grace-loadouts") { continue }
         $shared = @(Get-RelativeFiles $other.full | Where-Object { $ourFiles -contains $_ })
         if ($shared.Count) {
             $label = if ($other.id) { "'$($other.id)'" } else { $other.path }
@@ -141,6 +143,17 @@ function Install-Into([string]$path) {
     "added$(if ($addSave) { ' (with its own save, ER0000.skc)' })."
 }
 
+# Grace Loadouts adds its own grace menu line; when this profile loads it, it rebuilds its menu on
+# top of ours (or back to its own once we're gone). Its block names its setup script.
+function Update-GraceLoadouts([string]$path) {
+    $m = [regex]::Match([IO.File]::ReadAllText($path), "(?m)^# >>> Grace Loadouts.*\r?\n# setup: (.+?)\r?$")
+    if (-not $m.Success) { return }
+    $gl = $m.Groups[1].Value
+    if (-not (Test-Path $gl)) { Write-Host "  Grace Loadouts is in this profile, but its folder moved: run its Install_GraceLoadouts.bat again."; return }
+    Write-Host "  Grace Loadouts is in this profile too: updating its grace menu..."
+    & powershell -NoProfile -ExecutionPolicy Bypass -File $gl -Action refresh $path | ForEach-Object { "    $_" } | Write-Host
+}
+
 function Uninstall-From([string]$path) {
     $text = [IO.File]::ReadAllText($path)
     $nl = New-Line $text
@@ -182,7 +195,7 @@ foreach ($path in $Profiles) {
     if (-not (Test-Path $path)) { Write-Host "$path`: not found."; $failed++; continue }
     $result = if ($Action -eq "install") { Install-Into $path } else { Uninstall-From $path }
     Write-Host "$(Split-Path $path -Leaf): $result"
-    if ($result -like "skipped*") { $failed++ }
+    if ($result -like "skipped*") { $failed++ } else { Update-GraceLoadouts $path }
 }
 if ($Action -eq "install" -and $failed -eq $Profiles.Count) {
     Write-Host "`nSeeker's Compass was not added to any profile."
