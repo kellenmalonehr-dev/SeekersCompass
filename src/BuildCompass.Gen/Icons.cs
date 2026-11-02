@@ -8,6 +8,10 @@ using SoulsFormats;
 
 namespace BuildCompass.Gen;
 
+/// Small marks drawn beside an item's map mark. Only one slot is left for them, so it marks boss rewards;
+/// dungeon finds already sit on their dungeon's icon and name it in their hover text.
+enum Badge { Boss }
+
 /// Repaints unused world-map icon slots with item icons. The map GFX imports every MENU_MAP_N
 /// sprite by name, so new numbers would need GFX edits; instead we reuse slots nothing places
 /// (no param references them) and point their layout entries at new art in free atlas space.
@@ -19,14 +23,23 @@ static class Icons
     // art; 212/233 are DLC location slots, which drew underneath it.
     // scale: how much bigger to draw than the shared size, because the map GFX shrinks some slots more
     // than others (86 rendered ~30% smaller than 89/233 in-game at the same pixel size).
-    static readonly Dictionary<Kind, (ushort id, string atlas, float scale)> Slots = new()
+    // Keys name the art (data/icons/<key>.png when present, else a drawn glyph).
+    // 215 shares 213's region like 214 does; 22 is the only other slot no param places that the map
+    // can draw (`freeicons` also lists "MENU_MAP_07", which no icon id reaches).
+    // 22 drew underneath every other kind's icon in-game, so the boss badge, which overlaps item
+    // icons, takes 89 (the small-marker range draws on top) and the few bell bearings take 22.
+    static readonly Dictionary<string, (ushort id, string atlas, float scale)> Slots = new()
     {
-        [Kind.Weapon] = (86, "SB_MapCursor_02", 1.45f),
-        [Kind.Spell] = (89, "SB_MapCursor_02", 1f),
-        [Kind.Armor] = (214, "SB_MapCursor_03_dlc", 1f), // 212 never drew in-game; 214 did
-        [Kind.Talisman] = (233, "SB_MapCursor_03_dlc", 1f),
+        ["weapon"] = (86, "SB_MapCursor_02", 1.45f),
+        ["spell"] = (215, "SB_MapCursor_03_dlc", 1f),
+        ["armor"] = (214, "SB_MapCursor_03_dlc", 1f), // 212 never drew in-game; 214 did
+        ["talisman"] = (233, "SB_MapCursor_03_dlc", 1f),
+        ["bellbearing"] = (22, "SB_MapCursor", 1.15f), // 22's region is only 122 tall
+        ["badge_boss"] = (89, "SB_MapCursor_02", 0.6f),
     };
-    public static readonly Dictionary<Kind, ushort> Slot = Slots.ToDictionary(kv => kv.Key, kv => kv.Value.id);
+    public static readonly Dictionary<Kind, ushort> Slot = Enum.GetValues<Kind>().ToDictionary(k => k, k => Slots[k.ToString().ToLowerInvariant()].id);
+    public static readonly Dictionary<Badge, ushort> BadgeSlot = Enum.GetValues<Badge>().ToDictionary(b => b, b => Slots[BadgeKey(b)].id);
+    static string BadgeKey(Badge b) => "badge_" + b.ToString().ToLowerInvariant();
 
     const string FrameAtlas = "SB_MapCursor_02";
     static readonly string Texconv = Path.Combine(Program.Root, "tools", "texconv", "texconv.exe");
@@ -53,11 +66,11 @@ static class Icons
             var colors = SampleColors(frameAtlas, r80);
             // One icon size for all kinds: icon 80's size, or smaller if a slot is narrower (89 is), so nothing clips.
             int size = Slots.Values.Select(v => Rect(layouts[v.atlas], $"MENU_MAP_{v.id}.png")).Select(r => Math.Min(r.Width, r.Height)).Append(frame.Width).Min();
-            using (var sheet = new Bitmap(frame.Width * 4, frame.Height)) // preview of the four icons
+            using (var sheet = new Bitmap(frame.Width * Slots.Count, frame.Height)) // preview of every icon
             using (var gs = Graphics.FromImage(sheet))
             {
                 int i = 0;
-                foreach (var (kind, (slot, atlasName, scale)) in Slots)
+                foreach (var (key, (slot, atlasName, scale)) in Slots)
                 {
                     var atlas = bitmaps[atlasName];
                     var entries = layouts[atlasName].Root.Elements("SubTexture").ToList();
@@ -69,19 +82,20 @@ static class Icons
                     using (var g = Graphics.FromImage(canvas))
                     {
                         int x = (old.Width - drawn) / 2, y = (old.Height - drawn) / 2;
-                        string art = Path.Combine(Program.Root, "data", "icons", kind.ToString().ToLowerInvariant() + ".png");
+                        string art = Path.Combine(Program.Root, "data", "icons", key + ".png");
+                        g.InterpolationMode = InterpolationMode.HighQualityBicubic;
                         if (File.Exists(art))
                         {
                             // Custom art replaces frame + glyph, at icon 80's size so it matches vanilla marks.
                             using var custom = LoadArt(art);
-                            g.InterpolationMode = InterpolationMode.HighQualityBicubic;
                             g.DrawImage(custom, new Rectangle(x, y, drawn, drawn));
                         }
+                        else if (key.StartsWith("badge_"))
+                            DrawBadge(g, Enum.Parse<Badge>(key["badge_".Length..], ignoreCase: true), new RectangleF(x, y, drawn, drawn), colors);
                         else
                         {
-                            g.InterpolationMode = InterpolationMode.HighQualityBicubic;
                             g.DrawImage(frame, new Rectangle(x, y, drawn, drawn));
-                            DrawGlyph(g, kind, new RectangleF(x, y, drawn, drawn), colors);
+                            DrawGlyph(g, Enum.Parse<Kind>(key, ignoreCase: true), new RectangleF(x, y, drawn, drawn), colors);
                         }
                     }
                     // An unused slot with its own region is painted in place; one sharing its region
@@ -94,7 +108,7 @@ static class Icons
                     entry.SetAttributeValue("y", spot.Y);
                     gs.DrawImage(canvas, new Rectangle(i++ * frame.Width, 0, frame.Width, frame.Height),
                         new Rectangle((old.Width - drawn) / 2, (old.Height - drawn) / 2, drawn, drawn), GraphicsUnit.Pixel);
-                    Console.WriteLine($"  {res}: {kind} -> MENU_MAP_{slot} in {atlasName} at {spot.X},{spot.Y} ({old.Width}x{old.Height}{(shared ? ", moved" : ", in place")})");
+                    Console.WriteLine($"  {res}: {key} -> MENU_MAP_{slot} in {atlasName} at {spot.X},{spot.Y} ({old.Width}x{old.Height}{(shared ? ", moved" : ", in place")})");
                 }
                 sheet.Save(Path.Combine(Program.Root, "work", "icons", $"preview_{res}.png"));
             }
@@ -365,6 +379,49 @@ static class Icons
                 using (var gem = new GraphicsPath()) { gem.AddEllipse(38, 52, 24, 24); g.FillPath(inkFill, gem); }
                 g.FillEllipse(fill, 44, 57, 7, 7); // highlight
                 break;
+
+            case Kind.BellBearing: // bell on a ring
+                using (var ring = new Pen(c.ink, 5f)) g.DrawEllipse(ring, 42, 4, 16, 14);
+                using (var bell = new GraphicsPath())
+                {
+                    bell.AddBezier(30, 74, 30, 34, 36, 18, 50, 18);
+                    bell.AddBezier(50, 18, 64, 18, 70, 34, 70, 74);
+                    bell.AddLine(70, 74, 82, 82);
+                    bell.AddLine(82, 82, 18, 82);
+                    bell.CloseFigure();
+                    Shape(bell);
+                }
+                g.FillEllipse(inkFill, 43, 82, 14, 14); // clapper
+                g.DrawLine(thin, 38, 40, 38, 66);         // shine
+                break;
+        }
+        g.Restore(state);
+    }
+
+    /// A round dark badge with a light skull (boss reward).
+    static void DrawBadge(Graphics g, Badge badge, RectangleF box, (Color fill, Color ink) c)
+    {
+        g.SmoothingMode = SmoothingMode.AntiAlias;
+        var state = g.Save();
+        g.TranslateTransform(box.X, box.Y);
+        g.ScaleTransform(box.Width / 100f, box.Height / 100f);
+        using var disc = new SolidBrush(c.ink);
+        using var rim = new Pen(c.fill, 6f);
+        using var light = new SolidBrush(c.fill);
+        using var dark = new SolidBrush(c.ink);
+        g.FillEllipse(disc, 3, 3, 94, 94);
+        g.DrawEllipse(rim, 3, 3, 94, 94);
+        switch (badge)
+        {
+            case Badge.Boss: // skull
+                g.FillEllipse(light, 24, 16, 52, 48);              // cranium
+                g.FillRectangle(light, 34, 54, 32, 22);            // jaw
+                g.FillEllipse(dark, 32, 34, 15, 15);               // eyes
+                g.FillEllipse(dark, 53, 34, 15, 15);
+                using (var nose = new GraphicsPath()) { nose.AddPolygon(new PointF[] { new(50, 50), new(45, 60), new(55, 60) }); g.FillPath(dark, nose); }
+                foreach (float x in new[] { 42f, 50f, 58f }) g.FillRectangle(dark, x - 1.5f, 66, 3, 10); // teeth gaps
+                break;
+
         }
         g.Restore(state);
     }

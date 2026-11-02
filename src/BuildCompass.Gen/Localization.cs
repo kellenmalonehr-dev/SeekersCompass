@@ -50,7 +50,12 @@ class Loc
 
     public string StatShort(Stat s) => Menu(StatShortIds[s], s.ToString());
     public string StatLong(Stat s) => Menu(StatLongIds[s], Builder.StatNames[s]);
-    public string KindLabel(Kind k) => Menu(KindIds[k], Builder.KindNames[k]);
+    public string KindLabel(Kind k) => k == Kind.BellBearing ? BellBearings : Menu(KindIds[k], Builder.KindNames[k]);
+    /// Bell bearings' grace menu line. Other languages use the game's own name for the Smithing-Stone
+    /// Miner's Bell Bearing without its "[1]" (the game has no word for the group).
+    string BellBearings => IsEnglish ? Builder.KindNames[Kind.BellBearing]
+        : System.Text.RegularExpressions.Regex.Replace(items.Get("GoodsName", BellBearingLabelGoods) ?? Builder.KindNames[Kind.BellBearing], @"\s*[\[【［(（]\s*1\s*[\]】］)）]\s*$", "");
+    const int BellBearingLabelGoods = 8951; // Smithing-Stone Miner's Bell Bearing [1]
     public string Slot(string slot) => Menu(SlotIds[slot], slot);
     /// VIG/MND/END have no short form in the game's text; other languages get the full word.
     public string Attribute(string label) => AttributeIds.TryGetValue(label, out int id) ? Menu(id, label) : label;
@@ -60,6 +65,8 @@ class Loc
     public string Done => IsEnglish ? "Done" : talkText.GetValueOrDefault(15000720) ?? "Done";
 
     public string Name(Kind k, int id) => items.Name(k, id);
+    public string NpcName(int id) => items.Get("NpcName", id);
+    public string PlaceName(int id) => items.Get("PlaceName", id);
     public string TalismanInfo(int id) => items.TalismanInfo(id)?.Replace("\n", " ");
 
     // ---- the mod's own text (no game equivalent); translations by the author, corrections welcome ----
@@ -100,6 +107,21 @@ class Loc
         ["korkr"] = "모든 축복에서 탐구자의 나침반을 이용할 수 있다.",
         ["thath"] = "สามารถใช้เข็มทิศของผู้แสวงหาได้ที่จุดแห่งพรทุกแห่ง",
     };
+    /// "Boss: Tree Sentinel" / "Drop: Blackguard Big Boggart" in the hover text.
+    static readonly Dictionary<string, string> BossWords = new()
+    {
+        ["engus"] = "Boss", ["frafr"] = "Boss", ["deude"] = "Boss", ["itait"] = "Boss", ["spaes"] = "Jefe",
+        ["spaar"] = "Jefe", ["porbr"] = "Chefe", ["polpl"] = "Boss", ["rusru"] = "Босс", ["jpnjp"] = "ボス",
+        ["zhocn"] = "首领", ["zhotw"] = "頭目", ["korkr"] = "보스", ["thath"] = "บอส",
+    };
+    static readonly Dictionary<string, string> DropWords = new()
+    {
+        ["engus"] = "Drop", ["frafr"] = "Butin", ["deude"] = "Beute", ["itait"] = "Bottino", ["spaes"] = "Botín",
+        ["spaar"] = "Botín", ["porbr"] = "Espólio", ["polpl"] = "Łup", ["rusru"] = "Добыча", ["jpnjp"] = "ドロップ",
+        ["zhocn"] = "掉落", ["zhotw"] = "掉落", ["korkr"] = "드롭", ["thath"] = "ดรอป",
+    };
+    public string Boss => BossWords.GetValueOrDefault(Lang, BossWords["engus"]);
+    public string Drop => DropWords.GetValueOrDefault(Lang, DropWords["engus"]);
     public string Collected => CollectedWords.GetValueOrDefault(Lang, CollectedWords["engus"]);
     public string CompassName => CompassNames.GetValueOrDefault(Lang, CompassNames["engus"]);
     public string CompassDescription => CompassDescriptions.GetValueOrDefault(Lang, CompassDescriptions["engus"]);
@@ -118,10 +140,15 @@ class Loc
         return s.Substring(0, i);
     }
 
-    /// "Name | details" using the most detailed variant that fits, then trims with "...".
-    public string Fit(string name, string[] details, bool collected = false)
+    /// "Name | details | where" using the most detailed variant that fits, then trims with "...".
+    /// `where` (the dungeon, boss or NPC) outranks the details: if both don't fit, it stays.
+    public string Fit(string name, string[] details, string where = null, bool collected = false)
     {
         string suffix = collected ? " " + Collected : "";
+        if (!string.IsNullOrEmpty(where))
+            details = details.Where(d => !string.IsNullOrEmpty(d)).Select(d => $"{d} | {where}").Append(where).Concat(details).ToArray();
+        if (details.All(string.IsNullOrEmpty))
+            return Width(name + suffix) <= MaxWidth ? name + suffix : Cut(name, MaxWidth - Width(suffix) - 3) + "..." + suffix;
         foreach (var d in details.Where(d => !string.IsNullOrEmpty(d)))
         {
             string s = $"{name} | {d}{suffix}";
@@ -130,7 +157,7 @@ class Loc
         string last = details.LastOrDefault(d => !string.IsNullOrEmpty(d)) ?? "";
         string head = $"{name} | ";
         int room = MaxWidth - Width(head) - Width(suffix);
-        if (room >= 8) return head + Cut(last, room - 3).TrimEnd(' ', ',') + "..." + suffix;
+        if (room >= 14) return head + Cut(last, room - 3).TrimEnd(' ', ',') + "..." + suffix; // shorter stubs say nothing
         return Width(name + suffix) <= MaxWidth ? name + suffix : Cut(name, MaxWidth - Width(suffix) - 3) + "..." + suffix;
     }
 }

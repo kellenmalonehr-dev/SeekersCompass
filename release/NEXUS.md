@@ -10,7 +10,7 @@ Seeker's Compass - Build-Filtered Item Map
 
 ## Summary (short description, max 255 characters)
 
-Marks weapons, spells, armor and talismans on the world map, filtered by your damage stats. Hover a mark for scaling, requirements and effects. Buy the compass from Merchant Kalé and set filters at any Site of Grace. Convergence version included.
+Marks weapons, spells, armor, talismans and boss rewards on the world map, filtered by your damage stats. Hover a mark for scaling, requirements and effects. Buy the compass from Merchant Kalé and set filters at any Site of Grace. Convergence version included.
 
 ## Category / tags (suggestions)
 
@@ -49,6 +49,7 @@ Never miss the gear your build wants. Seeker's Compass marks every weapon, spell
 [list]
 [*][b]Stats:[/b] Strength, Dexterity, Intelligence, Faith, Arcane
 [*][b]Item types:[/b] Weapons, Spells, Armor, Talismans
+[*][b]Miner's Bell Bearings:[/b] a separate line that shows all nine Smithing-Stone and Somberstone Miner's Bell Bearings, whatever else is on.
 [*]Stats only: matching items of every type.
 [*]Types only: every item of those types.
 [*]Both: only matching items within the chosen types (e.g. Faith + Weapons = Faith weapons).
@@ -57,7 +58,9 @@ Weapons count for every stat they scale with at grade D or better. Spells count 
 
 [size=4][b]Map marks[/b][/size]
 [list]
-[*]Hand-drawn style icons: sword (weapons), tome (spells), helm (armor), pendant (talismans).
+[*]Hand-drawn style icons: sword (weapons), tome (spells), helm (armor), pendant (talismans), bell (bell bearings).
+[*]Boss rewards, unique enemy drops and NPC drops are marked at the enemy. Boss rewards carry a [b]skull[/b], and the hover names who drops it, e.g. [i]Golden Halberd | Boss: Tree Sentinel[/i].
+[*]Items from one pickup (a set in one chest, a boss's reward) share one mark, e.g. [i]Tree Sentinel Helm +3[/i].
 [*]Hover a mark for details:
 [list]
 [*]Weapons: scaling grade and requirement per stat, e.g. [i]Claymore | STR D 16, DEX D 13[/i]
@@ -66,7 +69,7 @@ Weapons count for every stat they scale with at grade D or better. Spells count 
 [*]Talismans: their effect
 [/list]
 [*]Items you've already picked up stay marked as [i](collected)[/i], with full details.
-[*]Items inside ruins, caves and catacombs sit on that location's icon, next to any NPC marker, instead of hiding underneath it.
+[*]Items inside ruins, caves and catacombs sit on that location's icon, next to any NPC marker, instead of hiding underneath it, and name the dungeon when hovered.
 [/list]
 
 [size=4][b]Languages[/b][/size]
@@ -134,10 +137,10 @@ Option B: run Uninstall_SeekersCompass.bat. Option C: run Uninstall_Without_ModE
 
 ## File descriptions (one per upload)
 
-**SeekersCompass-1.2.0.zip** (Main file)
+**SeekersCompass-1.3.0.zip** (Main file)
 > Seeker's Compass for the base game and Shadow of the Erdtree (tested with the DLC installed). Three ways to play: Launch_SeekersCompass.bat (Mod Engine 3), Install_SeekersCompass.bat to add it to a Mod Engine 3 profile you already use, or Install_Without_ModEngine.bat for Seamless Co-op's own launcher and other setups without Mod Engine. Offline only, never on your normal save.
 
-**SeekersCompass-1.2.0-Convergence-3.0.4.0.zip** (Main file)
+**SeekersCompass-1.3.0-Convergence-3.0.4.0.zip** (Main file)
 > Seeker's Compass built on top of The Convergence 3.0.4.0. Extract into your ConvergenceER folder, run Install_SeekersCompass.bat once, then launch Convergence as usual.
 
 ## Images
@@ -151,7 +154,7 @@ Upload from `release/images/` (1920x1080). Suggested order:
 
 ## Changelog
 
-**1.3.0** — Works together with Grace Loadouts: the installers and launcher let it merge its grace menu with Seeker's Compass's. The no-Mod Engine option now installs into Game\OfflineMods (shared with Grace Loadouts) and moves a 1.2 install there.
+**1.3.0** — More on the map: boss rewards (with a skull badge), unique enemy and NPC drops that name who drops them, and the Miner's Bell Bearings (new grace menu line). Items from one pickup share one mark, and cave and catacomb items name their dungeon. Works together with Grace Loadouts: the installers and launcher let it merge its grace menu with Seeker's Compass's. The no-Mod Engine option now installs into Game\OfflineMods (shared with Grace Loadouts) and moves a 1.2 install there.
 
 **1.2.0** — Play without Mod Engine: Install_Without_ModEngine.bat lets Seamless Co-op's own launcher (and other non-Mod Engine setups) load Seeker's Compass. Install_SeekersCompass.bat adds it to any Mod Engine 3 profile you already launch, with safety checks. The Convergence file is rebuilt for The Convergence 3.0.4.0.
 

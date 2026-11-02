@@ -102,23 +102,29 @@ installers keep the newer loader (`loader-version.txt`).
 
 ## How it works
 
-- **Items:** MSB treasure events and unique enemy drops are resolved through `ItemLotParam_map`.
+- **Items:** MSB treasure events and unique enemy drops are resolved through `ItemLotParam_map`;
+  event-script rewards (boss kills, scripted enemy and NPC drops) through the `AwardItemLot` calls in
+  every `.emevd`, traced to the enemy by entity id, group id or the event flag its death sets
+  (`Rewards.cs`). Miner's Bell Bearings have their own toggle, outside the stat filters.
   Weapons count for every stat they scale with at grade D or better; spells for every stat they
   require; armor for stats its SpEffects raise or a hand-tagged build (`data/tags.json`).
-- **Map marks:** one `WorldMapPointParam` row per item and matching filter. Each row watches one
+- **Map marks:** one `WorldMapPointParam` row per pickup (items of one kind from the same lot and
+  spot) and matching filter, plus a skull row below-right of boss rewards (badges drew underneath
+  their mark when placed above it). Each row watches one
   event flag; the grace menu recomputes those flags from the toggles when it closes. Hover text
   is a `PlaceName` FMG entry; a second entry, shown once the pickup flag is set, adds "(collected)".
 - **Grace menu:** `t000001000` (in `script/talk/m00_00_00_00.talkesdbnd.dcx`) gets one list line and a
   new state group for the toggle list. The patch finds the grace menu by its lines rather than
   state numbers, so it also applies to Convergence's differently compiled script.
-- **Icons:** map icons repaint unused `MENU_MAP_` slots 86, 89, 214 and 233 in
+- **Icons:** map icons repaint unused `MENU_MAP_` slots 86, 215, 214, 233 and 22 (weapon, spell, armor,
+  talisman, bell bearing) and 89 (boss skull) in
   `menu/*/01_common.tpf.dcx`; the compass gets item icon 40900. Art is in `data/icons/`.
 - **Languages:** every unpacked `msg/<lang>` gets the mod's text (`Loc`): item names from that language's
   FMGs, stat/slot/menu words from the game's own `GR_MenuText`/`EventTextForTalk` entries (same ids as
   the English words). Only the compass's name and description and "(collected)" are the mod's own translations.
-- **Settings:** event flags 78990-78994 (stats), 78982-78985 (types) and 78910-78935 (derived).
+- **Settings:** event flags 78990-78994 (stats), 78982-78986 (types, bell bearings) and 78910-78935 (derived).
 
-Limits: boss rewards, remembrances, shops and invader drops have no fixed spot and aren't marked;
+Limits: remembrances, shops and invader drops have no fixed spot and aren't marked;
 weapon stats use the uninfused scaling. Conflicts with other mods that replace `regulation.bin`,
 `msg/engus`, `menu/*/01_common` or the grace talk script (use the Convergence build for Convergence).
 

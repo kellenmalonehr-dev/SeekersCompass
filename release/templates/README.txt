@@ -2,7 +2,8 @@ SEEKER'S COMPASS
 ================
 
 Marks weapons, spells, armor and talismans on the world map, filtered by the damage
-stats you choose. Buy the Seeker's Compass from Merchant Kale at the Church of Elleh
+stats you choose, plus boss rewards (with a skull), enemy and NPC drops, and the
+Miner's Bell Bearings (their own grace menu line). Buy the Seeker's Compass from Merchant Kale at the Church of Elleh
 (100 runes), then pick "Seeker's Compass" at any Site of Grace.
 
 REQUIREMENTS

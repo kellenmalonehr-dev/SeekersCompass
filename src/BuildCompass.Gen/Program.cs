@@ -60,6 +60,11 @@ static class Program
             case "verify": Explore.Verify(args.Length > 1 ? args[1] : "mod"); return 0;
             case "dialogs": Explore.Dialogs(); return 0;
             case "iconuse": Explore.IconUse(args.Skip(1).ToArray()); return 0;
+            case "freeicons": Explore.FreeIcons(); return 0;
+            case "rewards": Explore.RewardList(); return 0;
+            case "event": Explore.EventDump(args.Skip(1).ToArray()); return 0;
+            case "whereis": Explore.WhereIs(args.Skip(1).ToArray()); return 0;
+            case "mentions": Explore.Mentions(args.Skip(1).ToArray()); return 0;
             case "shop": Explore.Shop(args.Skip(1).ToArray()); return 0;
             case "instr": Explore.Instr(args.Skip(1).ToArray()); return 0;
             case "npcs": NpcOffsets.Run(); return 0;

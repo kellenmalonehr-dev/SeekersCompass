@@ -30,7 +30,13 @@ static class Builder
     public static readonly Dictionary<Kind, string> KindNames = new()
     {
         [Kind.Weapon] = "Weapons", [Kind.Spell] = "Spells", [Kind.Armor] = "Armor", [Kind.Talisman] = "Talismans",
+        [Kind.BellBearing] = "Miner's Bell Bearings",
     };
+
+    // Badges drawn beside an item's mark, in metres east/north of it. Lower right, because a badge
+    // north of its mark drew underneath it (in both slot 22 and 89), which suggests the map draws
+    // marks top to bottom.
+    static readonly Vector3 BadgeOffset = new(9, 0, -9);
 
     public static void Run(string[] args)
     {
@@ -47,7 +53,7 @@ static class Builder
         // --- flags
         var used = FlagScan.UsedFlags(gd);
         var settings = SettingFlagCandidates.Where(f => !used.Contains(f)).ToArray();
-        if (settings.Length < 16) throw new Exception("not enough free flags in candidate range");
+        if (settings.Length < 12 + Enum.GetValues<Kind>().Length) throw new Exception("not enough free flags in candidate range");
         if (used.Contains(CompassShopFlag)) throw new Exception("shop stock flag in use");
         var statFlag = Enum.GetValues<Stat>().ToDictionary(s => s, s => settings[(int)s]);
         var kindFlag = Enum.GetValues<Kind>().ToDictionary(k => k, k => settings[12 + (int)k]); // "show all" toggles
@@ -64,36 +70,51 @@ static class Builder
         Console.WriteLine($"placements: {cat.Placements.Count} (" + string.Join(", ", cat.Placements.GroupBy(p => p.Kind).Select(x => $"{x.Key} {x.Count()}")) + ")");
         foreach (var s in Enum.GetValues<Stat>())
             Console.WriteLine($"  {s}: {cat.Placements.Count(p => p.Stats.Contains(s))}");
-        WriteReport(Path.Combine(root, "out", "placements.csv"), cat.Placements);
         File.WriteAllLines(Path.Combine(root, "out", "untagged_armor.csv"), cat.UntaggedArmor.OrderBy(u => u.name).Select(u => $"\"{u.name}\",{u.map},{u.weight}"));
 
         // --- params
         var wmp = gd["WorldMapPointParam"];
         var template = wmp[87210100] ?? throw new Exception("WMP template row missing");
         // Hover text ids are shared by every language; each language's PlaceName gets its own wording.
-        var hoverIds = new List<(Placement p, int nameText, int collectedText)>();
+        var hoverIds = new List<(Placement[] group, int nameText, int collectedText, int dungeonText)>();
         var fixedPlaceText = new SortedDictionary<int, string>(); // language-neutral entries (icon test)
         int rowId = WmpRowBase, textId = PlaceTextBase;
         legacyConv = gd["WorldMapLegacyConvParam"].Rows;
         var snap = new LocationSnap(wmp.Rows, gd["BonfireWarpParam"].Rows);
 
-        foreach (var p in cat.Placements)
+        int badges = 0;
+        // Items of one kind from the same pickup (an armor set in one chest, a boss's reward lot)
+        // share one mark that lists them all.
+        var groups = cat.Placements.GroupBy(p => (p.Kind, p.Source, p.Area, p.GridX, p.GridZ, p.Pos)).Select(g => g.ToArray()).ToList();
+        foreach (var group in groups)
         {
+            var p = group[0];
             int nameText = textId++, collectedText = textId++;
-            hoverIds.Add((p, nameText, collectedText));
-            var basePos = snap.Place(p);
+            var (basePos, dungeonText) = snap.Place(p);
+            hoverIds.Add((group, nameText, collectedText, dungeonText));
             // A map point shows while one flag is on, so an item gets one row per matching stat plus
             // one for its category; the derived flags encode the menu's AND/OR rules (see Visibility).
-            var showFlags = p.Stats.Select(s => vis.StatInKind[(p.Kind, s)]).Append(vis.AllOfKind[p.Kind]);
+            // A group shows when any of its items would. Bell bearings follow their own toggle alone.
+            var showFlags = p.Kind == Kind.BellBearing ? new[] { kindFlag[Kind.BellBearing] }
+                : group.SelectMany(m => m.Stats).Distinct().Select(s => vis.StatInKind[(p.Kind, s)]).Append(vis.AllOfKind[p.Kind]);
+            // Boss rewards get a skull beside the mark.
+            Badge? badge = p.Origin == Origin.Boss ? Badge.Boss : null;
             int dup = 0;
             foreach (var flag in showFlags)
             {
                 var pos = basePos + new Vector3(0.4f * dup++, 0, 0); // nudge stacked rows apart
-                AddPoint(wmp, template, rowId++, Icons.Slot[p.Kind], flag, p.Area, p.GridX, p.GridZ, pos,
-                    (nameText, 0, p.PickupFlag), (collectedText, p.PickupFlag, 0));
+                var texts = new[] { (nameText, 0u, p.PickupFlag), (collectedText, p.PickupFlag, 0u) };
+                // The badge row goes first: a badge with the higher row id drew underneath too.
+                if (badge is Badge b)
+                {
+                    AddPoint(wmp, template, rowId++, Icons.BadgeSlot[b], flag, p.Area, p.GridX, p.GridZ, pos + BadgeOffset, texts);
+                    badges++;
+                }
+                AddPoint(wmp, template, rowId++, Icons.Slot[p.Kind], flag, p.Area, p.GridX, p.GridZ, pos, texts);
             }
         }
-        Console.WriteLine($"snapped onto locations: {snap.Snapped} items at {snap.Locations} locations");
+        Console.WriteLine($"marks: {groups.Count} for {cat.Placements.Count} items; snapped onto locations: {snap.Snapped} at {snap.Locations} locations; badges: {badges}");
+        WriteReport(Path.Combine(root, "out", "placements.csv"), hoverIds.Select(h => (h.group, h.dungeonText)).ToList());
 
         if (iconTest) AddIconPalette(gd, text, wmp, template, statFlag[Stat.STR], fixedPlaceText, ref rowId, ref textId);
         wmp.Rows = wmp.Rows.OrderBy(r => r.ID).ToList();
@@ -117,13 +138,10 @@ static class Builder
         foreach (var loc in langs)
         {
             var placeText = new Dictionary<int, string>(fixedPlaceText);
-            foreach (var (p, nameText, collectedText) in hoverIds)
+            foreach (var (group, nameText, collectedText, dungeonText) in hoverIds)
             {
-                // The item's own name in this language (Convergence's new items may only exist in English).
-                string name = loc.Name(p.Kind, p.ItemId) ?? p.Name;
-                var details = p.Render(loc);
-                placeText[nameText] = loc.Fit(name, details);
-                placeText[collectedText] = loc.Fit(name, details, collected: true);
+                placeText[nameText] = Hover(loc, group, dungeonText);
+                placeText[collectedText] = Hover(loc, group, dungeonText, collected: true);
             }
             var goodsText = new Dictionary<string, (int, string)>
             {
@@ -151,6 +169,33 @@ static class Builder
 
         Console.WriteLine($"skipped: {cat.Skipped.Count}");
         Console.WriteLine($"wrote {mod}");
+    }
+
+    static string Hover(Loc loc, Placement[] group, int dungeonText, bool collected = false)
+    {
+        // The item's own name in this language (Convergence's new items may only exist in English).
+        string name = GroupName(group.Select(m => loc.Name(m.Kind, m.ItemId) ?? m.Name).Distinct().ToList());
+        // A group's details only when every item has the same ones (e.g. a set's requirements).
+        var all = group.Select(m => m.Render(loc)).ToList();
+        var details = all.All(d => d.SequenceEqual(all[0])) ? all[0] : Array.Empty<string>();
+        return loc.Fit(name, details, Where(loc, group[0], dungeonText), collected);
+    }
+
+    /// One name for several items from one pickup: the first (a set's helm, in lot order) and how many
+    /// more ("Tree Sentinel Helm +3"). Shared words would read oddly ("of Solitude") in some sets and languages.
+    static string GroupName(List<string> names) => names.Count == 1 ? names[0] : $"{names[0]} +{names.Count - 1}";
+
+    /// Where an item comes from, for its hover text: the boss or NPC that gives it, else the dungeon
+    /// it's in. Null for items lying in the open world.
+    static string Where(Loc loc, Placement p, int dungeonText)
+    {
+        string who = p.Who > 0 ? loc.NpcName(p.Who) : null;
+        return p.Origin switch
+        {
+            Origin.Boss => who != null ? $"{loc.Boss}: {who}" : loc.Boss,
+            Origin.NpcDrop or Origin.Drop when who != null => $"{loc.Drop}: {who}",
+            _ => dungeonText != 0 ? loc.PlaceName(dungeonText) : null,
+        };
     }
 
     internal static List<PARAM.Row> legacyConv;
@@ -274,14 +319,18 @@ static class Builder
         bnd.Write(dst);
     }
 
-    static void WriteReport(string path, List<Placement> ps)
+    static void WriteReport(string path, List<(Placement[] group, int dungeonText)> marks)
     {
         var englishLoc = Loc.For("engus");
         Directory.CreateDirectory(Path.GetDirectoryName(path));
         using var w = new StreamWriter(path);
-        w.WriteLine("kind,name,stats,map,pos,source,hover");
-        foreach (var p in ps.OrderBy(p => p.Kind).ThenBy(p => p.Name))
-            w.WriteLine($"{p.Kind},\"{p.Name}\",{string.Join("/", p.Stats)},m{p.Area}_{p.GridX:00}_{p.GridZ:00},\"{p.Pos.X:0.0} {p.Pos.Y:0.0} {p.Pos.Z:0.0}\",{p.Source},\"{englishLoc.Fit(p.Name, p.Render(englishLoc)).Replace("\"", "'")}\"");
+        w.WriteLine("kind,name,stats,origin,map,pos,source,hover");
+        var ps = marks.SelectMany(m => m.group.Select(p => (p, m.group, m.dungeonText)));
+        foreach (var (p, group, dungeonText) in ps.OrderBy(x => x.p.Kind).ThenBy(x => x.p.Name))
+        {
+            string hover = Hover(englishLoc, group, dungeonText).Replace("\"", "'");
+            w.WriteLine($"{p.Kind},\"{p.Name}\",{string.Join("/", p.Stats)},{p.Origin},m{p.Area}_{p.GridX:00}_{p.GridZ:00},\"{p.Pos.X:0.0} {p.Pos.Y:0.0} {p.Pos.Z:0.0}\",\"{p.Source}\",\"{hover}\"");
+        }
     }
 }
 
@@ -300,9 +349,9 @@ class Visibility
     {
         int i = 0;
         AnyStat = free[i++]; AnyKind = free[i++];
-        foreach (var k in Enum.GetValues<Kind>())
+        foreach (var k in Catalog.StatKinds)
             foreach (var s in Enum.GetValues<Stat>())
                 StatInKind[(k, s)] = free[i++];
-        foreach (var k in Enum.GetValues<Kind>()) AllOfKind[k] = free[i++];
+        foreach (var k in Catalog.StatKinds) AllOfKind[k] = free[i++];
     }
 }

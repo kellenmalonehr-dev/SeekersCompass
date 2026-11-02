@@ -20,7 +20,7 @@ class LocationSnap
     const int PerRow = 5;
     const float NpcClear = 22; // NPC marks and grace icons
 
-    readonly List<(int id, int space, Vector2 xz)> locations = new();
+    readonly List<(int id, int space, Vector2 xz, int text)> locations = new();
     readonly List<(int space, Vector2 xz)> npcs = new();
     readonly Dictionary<int, int> nextSlot = new();
 
@@ -37,27 +37,32 @@ class LocationSnap
             var at = At(r);
             int icon = r.Get<int>("iconId");
             if (icon == NpcIcon) npcs.Add(at);
-            else if (!Markers.Contains(icon)) locations.Add((r.ID, at.space, at.xz));
+            else if (!Markers.Contains(icon)) locations.Add((r.ID, at.space, at.xz, r.Get<int>("textId1")));
         }
         foreach (var r in graces) npcs.Add(At(r));
     }
 
-    /// The local position to draw this item's mark at.
-    public Vector3 Place(Placement p)
+    /// The local position to draw this item's mark at, and, for an item inside a dungeon (cave,
+    /// catacomb, tunnel...), the PlaceName text id of the dungeon whose icon it sits on (else 0).
+    public (Vector3 pos, int dungeonText) Place(Placement p)
     {
         var me = Builder.MapPos(p.Area, p.GridX, p.GridZ, p.Pos);
         var near = locations.Where(l => l.space == me.space)
             .Select(l => (l, d: Vector2.Distance(l.xz, me.xz))).OrderBy(x => x.d).FirstOrDefault();
-        bool dungeon = p.Area >= 30 && p.Area < 60;
-        if (near.l.id == 0 || near.d > (dungeon ? DungeonRadius : SnapRadius)) return p.Pos;
+        bool dungeon = IsDungeon(p.Area);
+        if (near.l.id == 0 || near.d > (dungeon ? DungeonRadius : SnapRadius)) return (p.Pos, 0);
 
         var target = NextFreeSlot(near.l);
         Snapped++;
         // MapPos is a pure translation of local coordinates, so shift the local position by the same delta.
-        return p.Pos + new Vector3(target.X - me.xz.X, 0, target.Y - me.xz.Y);
+        return (p.Pos + new Vector3(target.X - me.xz.X, 0, target.Y - me.xz.Y), dungeon ? near.l.text : 0);
     }
 
-    Vector2 NextFreeSlot((int id, int space, Vector2 xz) loc)
+    /// Dungeon interiors (m30-m4x: catacombs, caves, tunnels, DLC dungeons): their own maps, drawn on
+    /// the world map only through their entrance.
+    public static bool IsDungeon(byte area) => area >= 30 && area < 60;
+
+    Vector2 NextFreeSlot((int id, int space, Vector2 xz, int text) loc)
     {
         int k = nextSlot.GetValueOrDefault(loc.id);
         while (true)

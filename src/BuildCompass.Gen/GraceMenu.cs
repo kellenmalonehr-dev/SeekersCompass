@@ -160,7 +160,7 @@ static class GraceMenu
                 steps.Add((id, next) => new ESD.State { Conditions = { When(m, true, next, SetFlag(any, true)), Else(next) } });
         }
         AnyOf(vis.AnyStat, statFlag.Values);
-        AnyOf(vis.AnyKind, kindFlag.Values);
+        AnyOf(vis.AnyKind, Catalog.StatKinds.Select(k => kindFlag[k])); // bell bearings stand alone
 
         // StatInKind[k, s] = s && (k || !AnyKind): two states, the second reached only if s is on.
         foreach (var ((k, s), v) in vis.StatInKind)

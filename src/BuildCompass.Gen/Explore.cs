@@ -65,6 +65,140 @@ static class Explore
             }
     }
 
+    /// Lists every MENU_MAP_N sprite in the map atlases with whether a map param places it, to find
+    /// slots free for new marker art: `freeicons`.
+    public static void FreeIcons()
+    {
+        var gd = GameData.Load(Program.In("regulation.bin"));
+        var used = new Dictionary<int, string>();
+        foreach (var (name, p) in gd.Params.Where(kv => kv.Key.StartsWith("WorldMap") || kv.Key.StartsWith("Bonfire")))
+            foreach (var f in p.AppliedParamdef.Fields.Where(f => f.InternalName.Contains("icon", StringComparison.OrdinalIgnoreCase)))
+                foreach (var r in p.Rows)
+                    if (r[f.InternalName].Value is IConvertible c) used.TryAdd(Convert.ToInt32(c), $"{name}.{f.InternalName}");
+        var lyt = BND4.Read(Program.In("menu", "hi", "01_common.sblytbnd.dcx"));
+        foreach (var file in lyt.Files.Where(f => f.Name.Contains("MapCursor")))
+        {
+            var doc = System.Xml.Linq.XDocument.Parse(System.Text.Encoding.UTF8.GetString(file.Bytes));
+            foreach (var e in doc.Root.Elements("SubTexture"))
+            {
+                var m = System.Text.RegularExpressions.Regex.Match((string)e.Attribute("name"), @"^MENU_MAP_(\d+)\.png$");
+                if (!m.Success) continue;
+                int id = int.Parse(m.Groups[1].Value);
+                string region = $"{e.Attribute("x")},{e.Attribute("y")} {e.Attribute("width")}x{e.Attribute("height")}";
+                Console.WriteLine($"{id,5} {Path.GetFileNameWithoutExtension(file.Name),-22} {region,-20} {(used.TryGetValue(id, out var u) ? "used by " + u : "FREE")}");
+            }
+        }
+    }
+
+    /// Where goods whose name contains the text come from: `whereis <text>` (map treasures, enemy
+    /// drops, event rewards, shops).
+    public static void WhereIs(string[] args)
+    {
+        string want = string.Join(" ", args);
+        var gd = GameData.Load(Program.In("regulation.bin"));
+        var text = new Text(Program.In("msg", "engus", "item_dlc02.msgbnd.dcx"));
+        var goods = gd["EquipParamGoods"].Rows.Where(r => text.Get("GoodsName", r.ID)?.Contains(want, StringComparison.OrdinalIgnoreCase) == true)
+            .ToDictionary(r => r.ID, r => text.Get("GoodsName", r.ID));
+        var lots = gd["ItemLotParam_map"].Rows.Where(l => Enumerable.Range(1, 8).Any(s => l.Get<int>($"lotItemCategory0{s}") == 1 && goods.ContainsKey(l.Get<int>($"lotItemId0{s}"))))
+            .ToDictionary(l => l.ID, l => goods[Enumerable.Range(1, 8).Select(s => l.Get<int>($"lotItemId0{s}")).First(goods.ContainsKey)]);
+        // A lot is often the second or later in a chain started by a treasure/drop/reward lot.
+        int? Owner(int lot, Func<int, bool> starts) => Enumerable.Range(0, 10).Select(k => lot - k).Cast<int?>().FirstOrDefault(l => starts(l.Value));
+        var npcLots = gd["NpcParam"].Rows.Where(n => n.Get<int>("itemLotId_map") > 0).GroupBy(n => n.Get<int>("itemLotId_map")).ToDictionary(g => g.Key, g => g.Select(n => n.ID).ToList());
+        var treasures = new Dictionary<int, string>();
+        var dropMaps = new Dictionary<int, List<string>>();
+        foreach (var path in Program.InFiles("*.msb.dcx", "map", "mapstudio"))
+        {
+            string map = Path.GetFileName(path).Split('.')[0];
+            var msb = MSBE.Read(path);
+            foreach (var t in msb.Events.Treasures) if (t.ItemLotID > 0) treasures.TryAdd(t.ItemLotID, $"{map} treasure {t.TreasurePartName}");
+            foreach (var e in msb.Parts.Enemies)
+                foreach (var (lot, _) in npcLots.Where(kv => kv.Value.Contains(e.NPCParamID)))
+                    (dropMaps.TryGetValue(lot, out var l) ? l : dropMaps[lot] = new()).Add($"{map} {e.Name}");
+        }
+        var rewards = new Rewards(Rewards.LoadEnemies()).All.GroupBy(r => r.LotId).ToDictionary(g => g.Key, g => g.First());
+        foreach (var (lot, name) in lots.OrderBy(kv => kv.Value))
+        {
+            var where = new List<string>();
+            if (Owner(lot, treasures.ContainsKey) is int t) where.Add(treasures[t]);
+            if (Owner(lot, dropMaps.ContainsKey) is int d) where.Add("drop " + string.Join(", ", dropMaps[d].Take(3)));
+            if (Owner(lot, rewards.ContainsKey) is int rw) where.Add($"reward {rewards[rw].Enemy.Map} {rewards[rw].Enemy.Part.Name}{(rewards[rw].Boss ? " (boss)" : "")}");
+            Console.WriteLine($"{name,-44} lot {lot,-11} {(where.Count > 0 ? string.Join(" | ", where) : "?")}");
+        }
+        foreach (var s in gd["ShopLineupParam"].Rows.Where(s => s.Get<int>("equipType") == 3 && goods.ContainsKey(s.Get<int>("equipId"))))
+            Console.WriteLine($"{goods[s.Get<int>("equipId")],-44} shop row {s.ID}");
+        // Enemy loot table (NpcParam.itemLotId_enemy).
+        var enemyLots = gd["ItemLotParam_enemy"].Rows.Where(l => Enumerable.Range(1, 8).Any(s => l.Get<int>($"lotItemCategory0{s}") == 1 && goods.ContainsKey(l.Get<int>($"lotItemId0{s}")))).ToList();
+        foreach (var l in enemyLots)
+        {
+            var npcs = gd["NpcParam"].Rows.Where(n => Enumerable.Range(0, 10).Any(k => n.Get<int>("itemLotId_enemy") == l.ID - k)).Select(n => n.ID).ToList();
+            Console.WriteLine($"{goods[Enumerable.Range(1, 8).Select(s => l.Get<int>($"lotItemId0{s}")).First(goods.ContainsKey)],-44} enemy lot {l.ID} flag {l.Get<uint>("getItemFlagId")} npcs {string.Join(",", npcs.Take(5))}");
+        }
+    }
+
+    /// Prints every instruction (any event) whose 4-byte-aligned args contain a value: `mentions <value>`.
+    public static void Mentions(string[] args)
+    {
+        int v = int.Parse(args[0]);
+        foreach (var path in Program.InFiles("*.emevd.dcx", "event"))
+            foreach (var ev in EMEVD.Read(path).Events)
+                foreach (var ins in ev.Instructions)
+                    if (Enumerable.Range(0, ins.ArgData.Length / 4).Any(k => BitConverter.ToInt32(ins.ArgData, k * 4) == v))
+                        Console.WriteLine($"{Path.GetFileName(path)} ev {ev.ID}: {ins.Bank}:{ins.ID} {BitConverter.ToString(ins.ArgData)}");
+    }
+
+    /// Dumps one event's instructions and parameter mappings, and its first call sites: `event <id>`.
+    public static void EventDump(string[] args)
+    {
+        long want = long.Parse(args[0]);
+        int shownCalls = 0;
+        foreach (var path in Program.InFiles("*.emevd.dcx", "event"))
+            foreach (var ev in EMEVD.Read(path).Events)
+            {
+                if (ev.ID == want)
+                {
+                    Console.WriteLine($"== {Path.GetFileName(path)} ev {ev.ID}");
+                    for (int i = 0; i < ev.Instructions.Count; i++)
+                        Console.WriteLine($"  [{i}] {ev.Instructions[i].Bank}:{ev.Instructions[i].ID} {BitConverter.ToString(ev.Instructions[i].ArgData)}");
+                    foreach (var p in ev.Parameters)
+                        Console.WriteLine($"  param: ins {p.InstructionIndex} target {p.TargetStartByte} <- src {p.SourceStartByte} ({p.ByteCount} bytes)");
+                }
+                foreach (var ins in ev.Instructions)
+                    if (ins.Bank == 2000 && (ins.ID == 0 || ins.ID == 6) && ins.ArgData.Length >= 8 && BitConverter.ToUInt32(ins.ArgData, 4) == want && shownCalls++ < 5)
+                        Console.WriteLine($"  call from {Path.GetFileName(path)} ev {ev.ID}: {BitConverter.ToString(ins.ArgData[8..])}");
+            }
+    }
+
+    /// Lists item lots that event scripts award when an enemy dies: `rewards`.
+    public static void RewardList()
+    {
+        var gd = GameData.Load(Program.In("regulation.bin"));
+        var text = new Text(Program.In("msg", "engus", "item_dlc02.msgbnd.dcx"));
+        var lots = gd["ItemLotParam_map"];
+        var npc = gd["NpcParam"];
+        var enemies = Rewards.LoadEnemies();
+        Console.WriteLine($"enemies with entity ids: {enemies.Count}");
+        var rewards = new Rewards(enemies);
+        string ItemName(int cat, int id) => cat switch
+        {
+            1 => text.Get("GoodsName", id), 2 => text.Get("WeaponName", id - id % 100), 3 => text.Get("ProtectorName", id),
+            4 => text.Get("AccessoryName", id), _ => null,
+        };
+        foreach (var r in rewards.All.OrderBy(r => r.Enemy.Map))
+        {
+            var items = new List<string>();
+            for (int id = r.LotId; id < r.LotId + 10 && lots[id] != null; id++)
+                for (int s = 1; s <= 8; s++)
+                {
+                    var name = ItemName(lots[id].Get<int>($"lotItemCategory0{s}"), lots[id].Get<int>($"lotItemId0{s}"));
+                    if (name != null) items.Add(name);
+                }
+            var n = npc[r.Enemy.NpcId];
+            string who = (r.NameId > 0 ? text.Get("NpcName", r.NameId) : null) ?? (n != null ? text.Get("NpcName", n.Get<int>("nameId")) : null) ?? $"npc {r.Enemy.NpcId}";
+            Console.WriteLine($"{(r.Boss ? "BOSS" : "    ")} lot {r.LotId,-10} {r.Enemy.Map} {r.Enemy.Part.Name,-14} {who,-34} {string.Join("; ", items.Distinct())}  [{r.Source}]");
+        }
+        Console.WriteLine($"total {rewards.All.Count}");
+    }
+
     /// Prints the shop lineup rows around whichever row sells the named goods.
     public static void Shop(string[] args)
     {

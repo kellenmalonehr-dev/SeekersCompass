@@ -6,15 +6,30 @@ namespace BuildCompass.Gen;
 
 enum Stat { STR, DEX, INT, FAI, ARC }
 
-enum Kind { Weapon, Spell, Armor, Talisman }
+/// What a map mark stands for. Weapon to Talisman follow the stat filters; BellBearing (the
+/// smithing-stone and somberstone miners') has its own toggle.
+enum Kind { Weapon, Spell, Armor, Talisman, BellBearing }
 
-/// One collectable item at one place in the world.
+/// How the item is obtained: lying in the world, dropped by an enemy, by a named NPC, or a boss's reward.
+enum Origin { World, Drop, NpcDrop, Boss }
+
+/// One collectable item at one place in the world. `Who` is the NpcName text id of the enemy that
+/// drops or awards it (0 if unnamed).
 record Placement(Kind Kind, int ItemId, string Name, Func<Loc, string[]> Render, List<Stat> Stats,
-    uint PickupFlag, byte Area, byte GridX, byte GridZ, Vector3 Pos, string Source);
+    uint PickupFlag, byte Area, byte GridX, byte GridZ, Vector3 Pos, string Source)
+{
+    public Origin Origin { get; init; }
+    public int Who { get; init; }
+}
 
-/// Walks MSB treasures and unique enemy drops, resolves item lots, and tags each item with stats.
+/// Walks MSB treasures, unique enemy drops and event rewards (boss kills and the like), resolves
+/// item lots, and tags each item with stats.
 class Catalog
 {
+    /// The kinds the stat and category toggles combine over (bell bearings stand alone).
+    public static readonly Kind[] StatKinds = { Kind.Weapon, Kind.Spell, Kind.Armor, Kind.Talisman };
+    static readonly string[] BellBearingNames = { "Smithing-Stone Miner's Bell Bearing", "Somberstone Miner's Bell Bearing" };
+
     readonly GameData gd;
     readonly Text text;
     readonly Tags tags;
@@ -51,7 +66,7 @@ class Catalog
                 var loc = Locate(area, parts, part.Position, part.Name);
                 foreach (var lotId in Chain(t.ItemLotID, lotById))
                     if (seenLots.Add(lotId))
-                        AddLot(lotById[lotId], loc.area, loc.gx, loc.gz, loc.pos, $"{map} treasure");
+                        AddLot(lotById[lotId], loc, $"{map} treasure", Origin.World, 0);
             }
 
             foreach (var e in msb.Parts.Enemies)
@@ -64,11 +79,35 @@ class Catalog
                     var row = lotById[id];
                     // Only unique drops have a pickup flag; repeatable farm drops would flood the map.
                     if (row.Get<uint>("getItemFlagId") == 0 || !seenLots.Add(id)) continue;
-                    var loc = Locate(area, parts, e.Position, e.Name);
-                    AddLot(row, loc.area, loc.gx, loc.gz, loc.pos, $"{map} drop {e.Name}");
+                    var (origin, who) = Dropper(e, n, 0, boss: false);
+                    AddLot(row, Locate(area, parts, e.Position, e.Name), $"{map} drop {e.Name}", origin, who);
                 }
             }
         }
+
+        // Lots event scripts award when an enemy dies, at that enemy's spot.
+        foreach (var r in new Rewards(Rewards.LoadEnemies()).All)
+        {
+            var parts = r.Enemy.Map.Substring(1).Split('_').Select(int.Parse).ToArray();
+            int area = parts[0];
+            if (parts[3] != 0 && area is not (60 or 61)) continue;
+            var (origin, who) = Dropper(r.Enemy.Part, npcById.GetValueOrDefault(r.Enemy.NpcId), r.NameId, r.Boss);
+            var loc = Locate(area, parts, r.Enemy.Part.Position, r.Enemy.Part.Name);
+            foreach (var id in Chain(r.LotId, lotById))
+                if (seenLots.Add(id))
+                    AddLot(lotById[id], loc, $"{r.Enemy.Map} reward {r.Enemy.Part.Name} ({r.Source})", origin, who);
+        }
+    }
+
+    /// Who drops or awards an item: a boss (named by its health bar), a named NPC (human characters,
+    /// c0000), or an ordinary enemy. Placeholder names ("DLC dummy") count as unnamed.
+    (Origin, int) Dropper(MSBE.Part.Enemy e, PARAM.Row npc, int healthBarName, bool boss)
+    {
+        int Named(int id) => id > 0 && text.Get("NpcName", id) is string s && s != "DLC dummy" ? id : 0;
+        int npcName = Named(npc?.Get<int>("nameId") ?? 0);
+        if (boss) return (Origin.Boss, Named(healthBarName) is int hb and > 0 ? hb : npcName);
+        if (e.Name.StartsWith("c0000")) return (Origin.NpcDrop, Named(healthBarName) is int n and > 0 ? n : npcName);
+        return (Origin.Drop, Named(healthBarName));
     }
 
     public int TileMismatches;
@@ -93,7 +132,7 @@ class Catalog
             yield return id;
     }
 
-    void AddLot(PARAM.Row lot, byte area, byte gx, byte gz, Vector3 pos, string source)
+    void AddLot(PARAM.Row lot, (byte area, byte gx, byte gz, Vector3 pos) at, string source, Origin origin, int who)
     {
         uint rowFlag = lot.Get<uint>("getItemFlagId");
         for (int s = 1; s <= 8; s++)
@@ -102,8 +141,8 @@ class Catalog
             int cat = lot.Get<int>($"lotItemCategory0{s}");
             if (id <= 0 || lot.Get<int>($"lotItemBasePoint0{s}") == 0) continue;
             uint flag = rowFlag != 0 ? rowFlag : lot.Get<uint>($"getItemFlagId0{s}");
-            var p = Classify(cat, id, flag, area, gx, gz, pos, source);
-            if (p != null) Placements.Add(p);
+            var p = Classify(cat, id, flag, at.area, at.gx, at.gz, at.pos, source);
+            if (p != null) Placements.Add(p with { Origin = origin, Who = who });
         }
     }
 
@@ -112,11 +151,20 @@ class Catalog
         switch (cat)
         {
             case 2: return Weapon(id, flag, area, gx, gz, pos, source);
-            case 1: return Spell(id, flag, area, gx, gz, pos, source);
+            case 1: return Spell(id, flag, area, gx, gz, pos, source) ?? BellBearing(id, flag, area, gx, gz, pos, source);
             case 3: return Armor(id, flag, area, gx, gz, pos, source);
             case 4: return Talisman(id, flag, area, gx, gz, pos, source);
             default: return null;
         }
+    }
+
+    // --- bell bearings -----------------------------------------------------
+
+    Placement BellBearing(int id, uint flag, byte area, byte gx, byte gz, Vector3 pos, string source)
+    {
+        string name = text.Get("GoodsName", id);
+        if (name == null || !BellBearingNames.Any(name.StartsWith)) return null;
+        return new Placement(Kind.BellBearing, id, name, _ => Array.Empty<string>(), new List<Stat>(), flag, area, gx, gz, pos, source);
     }
 
     // --- weapons -----------------------------------------------------------
@@ -286,6 +334,7 @@ class Text
         Kind.Spell => Get("GoodsName", id),
         Kind.Armor => Get("ProtectorName", id),
         Kind.Talisman => Get("AccessoryName", id),
+        Kind.BellBearing => Get("GoodsName", id),
         _ => null,
     };
 
