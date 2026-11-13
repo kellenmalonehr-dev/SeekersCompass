@@ -65,12 +65,20 @@ static class Hubs
 
     public static void Run(string[] args)
     {
-        int bi = Array.IndexOf(args, "--base"), oi = Array.IndexOf(args, "--out");
+        // --add-to <mod folder>: as a part of the main build, on top of what it has written there.
+        int bi = Array.IndexOf(args, "--base"), oi = Array.IndexOf(args, "--out"), ai = Array.IndexOf(args, "--add-to");
         if (bi >= 0) Program.Base = args[bi + 1];
-        string outDir = oi >= 0 ? Path.GetFullPath(Path.Combine(Program.Root, args[oi + 1])) : Path.Combine(Program.Root, "mod-hubs");
-        Console.WriteLine($"base: {Program.Base ?? "vanilla"} -> {outDir}");
-        foreach (var sub in new[] { "map", "script", "event" }) // leftovers of an earlier build
-            if (Directory.Exists(Path.Combine(outDir, sub))) Directory.Delete(Path.Combine(outDir, sub), true);
+        string outDir = ai >= 0 ? Path.GetFullPath(args[ai + 1]) : oi >= 0 ? Path.GetFullPath(Path.Combine(Program.Root, args[oi + 1])) : Path.Combine(Program.Root, "mod-hubs");
+        Console.WriteLine($"hubs: base {Program.Base ?? "vanilla"} -> {outDir}");
+        // Leftovers of an earlier build. Map files are read from the game again every time: a map
+        // that already has its residents must not get them twice.
+        var hubMaps = ReadHubs().Select(h => h.Map).Append(Roundtable).ToHashSet();
+        if (Directory.Exists(Path.Combine(outDir, "map"))) Directory.Delete(Path.Combine(outDir, "map"), true);
+        foreach (var sub in new[] { Path.Combine("script", "talk"), "event" })
+            if (Directory.Exists(Path.Combine(outDir, sub)))
+                foreach (var f in Directory.GetFiles(Path.Combine(outDir, sub)).Where(f => hubMaps.Contains(Path.GetFileName(f).Split('.')[0])))
+                    File.Delete(f);
+        if (ai >= 0) Program.Over = outDir;
 
         string holdPath = Program.In("map", "mapstudio", Roundtable + ".msb.dcx");
         var hold = MSBE.Read(holdPath);
@@ -109,6 +117,7 @@ static class Hubs
         gd.Regulation.Files.First(f => Path.GetFileNameWithoutExtension(f.Name) == "BonfireWarpParam").Bytes = warp.Write();
         SoulsFormats.Cryptography.RegulationDecryptor.EncryptERRegulation(Path.Combine(outDir, "regulation.bin"), gd.Regulation);
         Console.WriteLine($"wrote {outDir}: {order} hubs in {hubs.Select(h => h.Map).Distinct().Count()} maps{(skipped > 0 ? $", {skipped} skipped" : "")}");
+        Program.Over = null;
     }
 
     static string DataFile(string name) => Path.Combine(Program.Root, "data", name);

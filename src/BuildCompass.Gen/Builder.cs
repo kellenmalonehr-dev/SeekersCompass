@@ -191,6 +191,16 @@ static class Builder
         if (Program.Base == null) BellBearings.Build(mod, gd, text);
         else Console.WriteLine("bell bearings: left to the base mod");
 
+        // --- the rest of the grace menu: Loadouts and Camp (Grace Items) add their lines to the talk
+        // script and menu text written above. Their DLL half is src/SeekersCompass.Dll.
+        GraceLoadouts.Gen.Builder.Run(new[] { "--base", mod, "--out", mod });
+        GraceItems.Gen.Builder.Run(new[] { "--base", mod, "--out", mod });
+
+        // --- Roundtable hubs: map, talk and event files of the hub rooms, and their travel entries.
+        // Not on top of another overhaul (untested there), and not with --no-hubs.
+        if (Program.Base == null && !args.Contains("--no-hubs")) Hubs.Run(new[] { "--add-to", mod });
+        else Console.WriteLine("hubs: left out");
+
         Console.WriteLine($"skipped: {cat.Skipped.Count}");
         Console.WriteLine($"wrote {mod}");
     }

@@ -14,9 +14,18 @@ static class Program
     /// file the base provides replaces vanilla's, so the generated files are merged on top of it.
     public static string Base;
 
+    /// Optional top layer: the mod folder being built, for a later part of the build (hubs) that
+    /// works on files an earlier part wrote. Read before the base layer and the game.
+    public static string Over;
+
     /// An input file: from the base layer if it has one, else vanilla.
     public static string In(params string[] parts)
     {
+        if (Over != null)
+        {
+            string o = Path.Combine(new[] { Over }.Concat(parts).ToArray());
+            if (File.Exists(o)) return o;
+        }
         if (Base != null)
         {
             string b = Path.Combine(new[] { Base }.Concat(parts).ToArray());
@@ -29,7 +38,7 @@ static class Program
     public static IEnumerable<string> InFiles(string pattern, params string[] dir)
     {
         var files = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
-        foreach (var root in new[] { GameDir, Base })
+        foreach (var root in new[] { GameDir, Base, Over })
         {
             if (root == null) continue;
             string d = Path.Combine(new[] { root }.Concat(dir).ToArray());
