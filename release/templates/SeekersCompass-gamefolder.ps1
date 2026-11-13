@@ -10,7 +10,7 @@
 #                                               started the game
 #   Game\OfflineMods\SeekersCompass\            the mod's files
 # Seeker's Compass 1.2 installed into Game\SeekersCompass instead; installing moves it.
-# With Grace Loadouts installed there too, its installer then merges the two grace menus.
+# With Grace Loadouts or Grace Items installed there too, they then rebuild their menus on top of ours.
 param(
     [ValidateSet("install", "uninstall")][string]$Action = "install",
     [string]$GameDir
@@ -52,12 +52,23 @@ function Get-ProxyKind([string]$path) {
     "other"
 }
 
-# Grace Loadouts rebuilds its menu on top of ours (or back to its own) when we come or go.
-function Update-GraceLoadouts {
-    $gl = Join-Path $mods "GraceLoadouts\GraceLoadouts-gamefolder.ps1"
-    if (-not (Test-Path $gl)) { return }
-    Write-Host "Grace Loadouts is installed too: updating its grace menu..."
-    & powershell -NoProfile -ExecutionPolicy Bypass -File $gl -Action refresh -GameDir $GameDir
+# Mods that load after ours and add their own grace menu line (Grace Loadouts, Grace Items) rebuild
+# their menu on top of ours, or back to their own, when we come or go. The first of them does (its
+# *-gamefolder.ps1 refresh), and passes it on to the next.
+function Update-LaterMods {
+    $later = foreach ($dir in Get-ChildItem $mods -Directory -ErrorAction SilentlyContinue) {
+        $ini = Join-Path $dir.FullName "package.ini"
+        $script = Get-ChildItem $dir.FullName -Filter "*-gamefolder.ps1" -ErrorAction SilentlyContinue | Select-Object -First 1
+        if (-not (Test-Path $ini) -or -not $script) { continue }
+        $order = Select-String -Path $ini -Pattern '^\s*order\s*=\s*(\d+)' | Select-Object -First 1
+        $name = Select-String -Path $ini -Pattern '^\s*name\s*=\s*(.+?)\s*$' | Select-Object -First 1
+        $order = if ($order) { [int]$order.Matches[0].Groups[1].Value } else { 0 }
+        if ($order -gt 10) { @{ Order = $order; Name = $(if ($name) { $name.Matches[0].Groups[1].Value } else { $dir.Name }); Script = $script.FullName } }
+    }
+    $next = @($later | Sort-Object { $_.Order }, { $_.Name })[0]
+    if (-not $next) { return }
+    Write-Host "$($next.Name) is installed too: updating its grace menu..."
+    & powershell -NoProfile -ExecutionPolicy Bypass -File $next.Script -Action refresh -GameDir $GameDir | ForEach-Object { "  $_" } | Write-Host
 }
 
 if (-not $GameDir) { $GameDir = Find-GameDir }
@@ -80,7 +91,7 @@ if ($Action -eq "uninstall") {
         if (Test-Path (Join-Path $dir $marker)) { Remove-Item $dir -Recurse -Force; $removed = $true }
         elseif (Test-Path $dir) { Write-Host "Left $dir alone: this installer didn't create it." }
     }
-    if ($removed) { Write-Host "Removed Seeker's Compass"; Update-GraceLoadouts }
+    if ($removed) { Write-Host "Removed Seeker's Compass"; Update-LaterMods }
     # The loader and proxy go once no mod uses them any more.
     $left = @(Get-ChildItem $mods -Directory -ErrorAction SilentlyContinue | Where-Object { Test-Path (Join-Path $_.FullName "package.ini") })
     if (-not $left.Count) {
@@ -133,7 +144,7 @@ if (Test-Path (Join-Path $legacy $marker)) {
     Remove-Item $legacy -Recurse -Force
     Write-Host "Moved Seeker's Compass from Game\SeekersCompass to Game\OfflineMods\SeekersCompass."
 }
-Update-GraceLoadouts
+Update-LaterMods
 
 Write-Host "`nDone. Start Elden Ring the way you normally do without Mod Engine:"
 Write-Host "  - Seamless Co-op's launcher (ersc_launcher.exe): Seeker's Compass with your Seamless characters."

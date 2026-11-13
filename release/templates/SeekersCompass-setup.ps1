@@ -28,6 +28,17 @@ if ($Action -eq "install" -and -not $pkg) {
 }
 # A build made on top of another mod names that mod's package id here (e.g. convergence-er).
 $requires = if ($pkg -and (Test-Path (Join-Path $pkg "requires-package.txt"))) { (Get-Content (Join-Path $pkg "requires-package.txt") -Raw).Trim() } else { "" }
+# A Convergence build carries that version's files: installing it on another version would undo the update.
+$builtFor = if ($pkg -and (Test-Path (Join-Path $pkg "built-for-version.txt"))) { (Get-Content (Join-Path $pkg "built-for-version.txt") -Raw).Trim() } else { "" }
+$installed = Join-Path $root "version.txt"
+if ($Action -eq "install" -and $builtFor -and (Test-Path $installed)) {
+    $have = (Get-Content $installed -Raw).Trim()
+    if ($have -ne $builtFor) {
+        Write-Host "This Seeker's Compass file is for Convergence $builtFor, but this folder has Convergence $have."
+        Write-Host "Nothing was changed. Get the Seeker's Compass file made for Convergence $have."
+        exit 1
+    }
+}
 
 # Profiles keep their own line breaks (Windows or Unix style).
 function New-Line([string]$text) { if ($text.Contains("`r`n")) { "`r`n" } else { "`n" } }
@@ -97,8 +108,9 @@ function Install-Into([string]$path) {
     $ourFiles = Get-RelativeFiles $ours | Where-Object { $_ -ne "requires-package.txt" }
     foreach ($other in $p.Packages) {
         if (-not $other.full -or ($base -and $other -eq $base) -or -not (Test-Path $other.full)) { continue }
-        # Grace Loadouts shares the grace menu files but rebuilds its copy on top of ours (below).
-        if ($other.id -eq "grace-loadouts") { continue }
+        # Grace Loadouts and Grace Items share the grace menu files but rebuild their copy on top of
+        # ours (below).
+        if ($other.id -in "grace-loadouts", "grace-items") { continue }
         $shared = @(Get-RelativeFiles $other.full | Where-Object { $ourFiles -contains $_ })
         if ($shared.Count) {
             $label = if ($other.id) { "'$($other.id)'" } else { $other.path }
@@ -121,7 +133,7 @@ function Install-Into([string]$path) {
     }
 
     $header = "[[$($p.Style)]]"
-    $block = "$begin${nl}$header${nl}id = `"seekers-compass`"${nl}path = $(Format-TomlPath $ours)${nl}"
+    $block = "$begin${nl}# order: 10${nl}$header${nl}id = `"seekers-compass`"${nl}path = $(Format-TomlPath $ours)${nl}"
     if ($base) { $block += "load_after = [{ id = `"$requires`", optional = false }]$nl" }
     $block += $end
 
@@ -143,15 +155,21 @@ function Install-Into([string]$path) {
     "added$(if ($addSave) { ' (with its own save, ER0000.skc)' })."
 }
 
-# Grace Loadouts adds its own grace menu line; when this profile loads it, it rebuilds its menu on
-# top of ours (or back to its own once we're gone). Its block names its setup script.
-function Update-GraceLoadouts([string]$path) {
-    $m = [regex]::Match([IO.File]::ReadAllText($path), "(?m)^# >>> Grace Loadouts.*\r?\n# setup: (.+?)\r?$")
-    if (-not $m.Success) { return }
-    $gl = $m.Groups[1].Value
-    if (-not (Test-Path $gl)) { Write-Host "  Grace Loadouts is in this profile, but its folder moved: run its Install_GraceLoadouts.bat again."; return }
-    Write-Host "  Grace Loadouts is in this profile too: updating its grace menu..."
-    & powershell -NoProfile -ExecutionPolicy Bypass -File $gl -Action refresh $path | ForEach-Object { "    $_" } | Write-Host
+# Grace Loadouts and Grace Items add their own grace menu line; when this profile loads them, they
+# rebuild their menu on top of ours (or back to their own once we're gone). Each marks its block
+# with its setup script and its place in the order ("# order:"; Grace Loadouts 1.0's has none: 20).
+# The first of them refreshes, and passes it on to the next.
+function Update-LaterMods([string]$path) {
+    $blocks = foreach ($m in [regex]::Matches([IO.File]::ReadAllText($path), "(?m)^# >>> (.+?) \(managed by[^\r\n]*\r?\n([\s\S]*?)^# <<< \1")) {
+        $name = $m.Groups[1].Value; $body = $m.Groups[2].Value
+        $order = if ($body -match "(?m)^# order: (\d+)") { [int]$Matches[1] } elseif ($name -eq "Grace Loadouts") { 20 } else { 0 }
+        if ($order -gt 10 -and $body -match "(?m)^# setup: (.+?)\r?$") { @{ Name = $name; Order = $order; Setup = $Matches[1] } }
+    }
+    $next = @($blocks | Sort-Object { $_.Order })[0]
+    if (-not $next) { return }
+    if (-not (Test-Path $next.Setup)) { Write-Host "  $($next.Name) is in this profile, but its folder moved: run its installer again."; return }
+    Write-Host "  $($next.Name) is in this profile too: updating its grace menu..."
+    & powershell -NoProfile -ExecutionPolicy Bypass -File $next.Setup -Action refresh $path | ForEach-Object { "    $_" } | Write-Host
 }
 
 function Uninstall-From([string]$path) {
@@ -195,7 +213,7 @@ foreach ($path in $Profiles) {
     if (-not (Test-Path $path)) { Write-Host "$path`: not found."; $failed++; continue }
     $result = if ($Action -eq "install") { Install-Into $path } else { Uninstall-From $path }
     Write-Host "$(Split-Path $path -Leaf): $result"
-    if ($result -like "skipped*") { $failed++ } else { Update-GraceLoadouts $path }
+    if ($result -like "skipped*") { $failed++ } else { Update-LaterMods $path }
 }
 if ($Action -eq "install" -and $failed -eq $Profiles.Count) {
     Write-Host "`nSeeker's Compass was not added to any profile."

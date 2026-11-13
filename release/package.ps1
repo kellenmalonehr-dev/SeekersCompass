@@ -65,6 +65,8 @@ $cver = (Get-Content (Join-Path $Convergence "version.txt") -Raw).Trim()
 dotnet $gen build --base (Join-Path $Convergence "mod") --out "release\staging\convergence\SeekersCompass-Convergence" | Select-String "placements|grace menu:|wrote|Exception"
 # Tells the setup script this build carries Convergence's own files, so it must load after Convergence's package.
 Write-Text (Join-Path $c "SeekersCompass-Convergence\requires-package.txt") "convergence-er"
+# And which Convergence version, so the setup script refuses any other.
+Write-Text (Join-Path $c "SeekersCompass-Convergence\built-for-version.txt") $cver
 # The install script adds our package (load_after convergence-er) to Convergence's own me3 profiles,
 # so players keep launching with Start_Convergence.bat. me3 maps every package's files in load
 # order and the last one wins a shared path, so our merged files override Convergence's.

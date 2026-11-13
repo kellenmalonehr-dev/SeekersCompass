@@ -67,8 +67,9 @@ NOTES
 - Conflicts with mods that also replace regulation.bin, the grace menu talk script
   (script/talk/m00_00_00_00), the item/menu text (msg/*) or menu/*/01_common.
   Convergence players: use the Convergence version of this mod instead.
-- Grace Loadouts also adds a grace menu line. Install both the same way (both in a Mod
-  Engine 3 profile, or both with Install_Without_ModEngine.bat), in either order: the
-  installers merge the two menus.
+- Grace Loadouts and Grace Items also add grace menu lines. Install them the same way (all in
+  a Mod Engine 3 profile, or all with Install_Without_ModEngine.bat), in any order and any
+  combination: the installers merge the menus, and redo it when one of them is updated or
+  removed.
 - Seamless Co-op's own launcher only loads Seamless itself; with option C installed,
   Seeker's Compass loads alongside it.
