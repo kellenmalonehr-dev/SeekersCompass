@@ -7,7 +7,10 @@ namespace BuildCompass.Gen;
 static class Builder
 {
     const int WmpRowBase = 95_000_000;
-    const int PlaceTextBase = 950_000_000;
+    public const int PlaceTextBase = 950_000_000;
+    const int RoundtableText = 11100; // "Roundtable Hold"
+    const int RoundtableIconRow = 111000; // the WorldMapPointParam row of its big map icon
+    static bool IsRoundtable(Placement p) => p.Area == 11 && p.GridX == 10;
     public const int CompassGoodsId = 2_909_000;
     const string CompassName = "Seeker's Compass";
 
@@ -16,6 +19,8 @@ static class Builder
     // (slots 5-11 belonged to the old yes/no prompt flow and stay reserved).
     static readonly uint[] SettingFlagCandidates = Enumerable.Range(78990, 10).Concat(Enumerable.Range(78980, 10)).Select(i => (uint)i).ToArray();
     static readonly uint[] DerivedFlagCandidates = Enumerable.Range(78900, 80).Select(i => (uint)i).ToArray();
+    // 78700-78799 belongs to Grace Loadouts, whose DLL acts on those flags (no vanilla data shows that).
+    static readonly uint[] MarkFlagCandidates = Enumerable.Range(78000, 700).Concat(Enumerable.Range(77000, 1000)).Concat(Enumerable.Range(76000, 1000)).Select(i => (uint)i).ToArray();
 
     // Kalé (Church of Elleh) sells rows 100500-100525; 100508 is free. Stock flags follow the row
     // number in vanilla (1005NN -> 1500N0).
@@ -30,7 +35,7 @@ static class Builder
     public static readonly Dictionary<Kind, string> KindNames = new()
     {
         [Kind.Weapon] = "Weapons", [Kind.Spell] = "Spells", [Kind.Armor] = "Armor", [Kind.Talisman] = "Talismans",
-        [Kind.BellBearing] = "Miner's Bell Bearings",
+        [Kind.BellBearing] = "Miner's Bell Bearings", [Kind.Whetstone] = "Whetstones", [Kind.KeyItem] = "Key Items",
     };
 
     // Badges drawn beside an item's mark, in metres east/north of it. Lower right, because a badge
@@ -53,7 +58,8 @@ static class Builder
         // --- flags
         var used = FlagScan.UsedFlags(gd);
         var settings = SettingFlagCandidates.Where(f => !used.Contains(f)).ToArray();
-        if (settings.Length < 12 + Enum.GetValues<Kind>().Length) throw new Exception("not enough free flags in candidate range");
+        if (settings.Length < 13 + Enum.GetValues<Kind>().Length) throw new Exception("not enough free flags in candidate range");
+        uint collectedFlag = settings[12 + Enum.GetValues<Kind>().Length]; // on: collected items stay marked
         if (used.Contains(CompassShopFlag)) throw new Exception("shop stock flag in use");
         var statFlag = Enum.GetValues<Stat>().ToDictionary(s => s, s => settings[(int)s]);
         var kindFlag = Enum.GetValues<Kind>().ToDictionary(k => k, k => settings[12 + (int)k]); // "show all" toggles
@@ -76,44 +82,57 @@ static class Builder
         var wmp = gd["WorldMapPointParam"];
         var template = wmp[87210100] ?? throw new Exception("WMP template row missing");
         // Hover text ids are shared by every language; each language's PlaceName gets its own wording.
-        var hoverIds = new List<(Placement[] group, int nameText, int collectedText, int dungeonText)>();
+        var hoverIds = new List<(Placement[] group, int nameText, int collectedText, int[] moreText, int dungeonText)>();
         var fixedPlaceText = new SortedDictionary<int, string>(); // language-neutral entries (icon test)
         int rowId = WmpRowBase, textId = PlaceTextBase;
         legacyConv = gd["WorldMapLegacyConvParam"].Rows;
         var snap = new LocationSnap(wmp.Rows, gd["BonfireWarpParam"].Rows);
 
-        int badges = 0;
+        int badges = 0, noPickup = 0;
         // Items of one kind from the same pickup (an armor set in one chest, a boss's reward lot)
         // share one mark that lists them all.
         var groups = cat.Placements.GroupBy(p => (p.Kind, p.Source, p.Area, p.GridX, p.GridZ, p.Pos)).Select(g => g.ToArray()).ToList();
+        var markFlags = MarkFlagCandidates.Where(f => !used.Contains(f)).ToArray();
+        if (markFlags.Length < groups.Count) throw new Exception($"{groups.Count} marks but {markFlags.Length} free mark flags");
+        Console.WriteLine($"mark flags: {markFlags[0]}-{markFlags[groups.Count - 1]}");
+        var marks = new List<Mark>();
         foreach (var group in groups)
         {
             var p = group[0];
-            int nameText = textId++, collectedText = textId++;
-            var (basePos, dungeonText) = snap.Place(p);
-            hoverIds.Add((group, nameText, collectedText, dungeonText));
-            // A map point shows while one flag is on, so an item gets one row per matching stat plus
-            // one for its category; the derived flags encode the menu's AND/OR rules (see Visibility).
-            // A group shows when any of its items would. Bell bearings follow their own toggle alone.
-            var showFlags = p.Kind == Kind.BellBearing ? new[] { kindFlag[Kind.BellBearing] }
-                : group.SelectMany(m => m.Stats).Distinct().Select(s => vis.StatInKind[(p.Kind, s)]).Append(vis.AllOfKind[p.Kind]);
-            // Boss rewards get a skull beside the mark.
-            Badge? badge = p.Origin == Origin.Boss ? Badge.Boss : null;
-            int dup = 0;
-            foreach (var flag in showFlags)
-            {
-                var pos = basePos + new Vector3(0.4f * dup++, 0, 0); // nudge stacked rows apart
-                var texts = new[] { (nameText, 0u, p.PickupFlag), (collectedText, p.PickupFlag, 0u) };
-                // The badge row goes first: a badge with the higher row id drew underneath too.
-                if (badge is Badge b)
+            // Roundtable Hold's own coordinates convert to open sea; its map icon is a separate row.
+            if (IsRoundtable(p) && wmp[RoundtableIconRow] is PARAM.Row hold)
+                p = p with
                 {
-                    AddPoint(wmp, template, rowId++, Icons.BadgeSlot[b], flag, p.Area, p.GridX, p.GridZ, pos + BadgeOffset, texts);
-                    badges++;
-                }
-                AddPoint(wmp, template, rowId++, Icons.Slot[p.Kind], flag, p.Area, p.GridX, p.GridZ, pos, texts);
+                    Area = hold.Get<byte>("areaNo"), GridX = hold.Get<byte>("gridXNo"), GridZ = hold.Get<byte>("gridZNo"),
+                    Pos = new Vector3(hold.Get<float>("posX"), hold.Get<float>("posY"), hold.Get<float>("posZ")),
+                };
+            int nameText = textId++, collectedText = textId++;
+            var moreText = Enumerable.Range(0, MoreLineCount(group)).Select(_ => textId++).ToArray();
+            var (pos, dungeonText) = snap.Place(p);
+            hoverIds.Add((group, nameText, collectedText, moreText, dungeonText));
+            // A map point watches one flag, so each mark has its own, which the grace menu computes from
+            // the flags that show it (the derived ones encode the AND/OR rules, see Visibility) and its
+            // pickup. A group shows when any of its items would; the goods kinds follow their own toggle.
+            var shows = (Catalog.StatKinds.Contains(p.Kind)
+                ? group.SelectMany(m => m.Stats).Distinct().Select(s => vis.StatInKind[(p.Kind, s)]).Append(vis.AllOfKind[p.Kind])
+                : new[] { kindFlag[p.Kind] }).ToArray();
+            uint pickup = group.Select(m => m.PickupFlag).FirstOrDefault(f => f != 0);
+            uint flag = markFlags[marks.Count];
+            marks.Add(new Mark(flag, shows, pickup, p.Kind, group.SelectMany(m => m.Stats).Distinct().ToArray()));
+            if (pickup == 0) noPickup++;
+            // One hover line per item: the first says where it is and when it's collected.
+            var texts = (pickup != 0 ? new[] { (nameText, 0u, pickup), (collectedText, pickup, 0u) } : new[] { (nameText, 0u, 0u) })
+                .Concat(moreText.Select(t => (t, 0u, 0u))).ToArray();
+            // The badge row goes first: a badge with the higher row id drew underneath too.
+            // Boss rewards get a skull beside the mark.
+            if (p.Origin == Origin.Boss)
+            {
+                AddPoint(wmp, template, rowId++, Icons.BadgeSlot[Badge.Boss], flag, p.Area, p.GridX, p.GridZ, pos + BadgeOffset, texts);
+                badges++;
             }
+            AddPoint(wmp, template, rowId++, Icons.Slot[p.Kind], flag, p.Area, p.GridX, p.GridZ, pos, texts);
         }
-        Console.WriteLine($"marks: {groups.Count} for {cat.Placements.Count} items; snapped onto locations: {snap.Snapped} at {snap.Locations} locations; badges: {badges}");
+        Console.WriteLine($"marks: {groups.Count} for {cat.Placements.Count} items ({noPickup} with no pickup record); snapped onto locations: {snap.Snapped} at {snap.Locations} locations; badges: {badges}");
         WriteReport(Path.Combine(root, "out", "placements.csv"), hoverIds.Select(h => (h.group, h.dungeonText)).ToList());
 
         if (iconTest) AddIconPalette(gd, text, wmp, template, statFlag[Stat.STR], fixedPlaceText, ref rowId, ref textId);
@@ -138,10 +157,12 @@ static class Builder
         foreach (var loc in langs)
         {
             var placeText = new Dictionary<int, string>(fixedPlaceText);
-            foreach (var (group, nameText, collectedText, dungeonText) in hoverIds)
+            foreach (var (group, nameText, collectedText, moreText, dungeonText) in hoverIds)
             {
-                placeText[nameText] = Hover(loc, group, dungeonText);
-                placeText[collectedText] = Hover(loc, group, dungeonText, collected: true);
+                placeText[nameText] = Hover(loc, group[0], dungeonText);
+                placeText[collectedText] = Hover(loc, group[0], dungeonText, collected: true);
+                var more = MoreLines(loc, group);
+                for (int i = 0; i < moreText.Length; i++) placeText[moreText[i]] = more[i];
             }
             var goodsText = new Dictionary<string, (int, string)>
             {
@@ -161,35 +182,45 @@ static class Builder
         }
 
         // --- grace menu (talk script)
-        GraceMenu.Build(mod, statFlag, kindFlag, vis);
+        GraceMenu.Build(mod, statFlag, kindFlag, collectedFlag, vis, marks);
 
-        // The yes/no prompt event is gone; drop the old common.emevd so it can't keep running.
-        string staleEvent = Path.Combine(mod, "event", "common.emevd.dcx");
-        if (File.Exists(staleEvent)) File.Delete(staleEvent);
+        // --- merchants give their bell bearing on a first visit (common event script). Not on top of
+        // another overhaul: Convergence has this feature itself.
+        string commonEvent = Path.Combine(mod, "event", "common.emevd.dcx");
+        if (File.Exists(commonEvent)) File.Delete(commonEvent);
+        if (Program.Base == null) BellBearings.Build(mod, gd, text);
+        else Console.WriteLine("bell bearings: left to the base mod");
 
         Console.WriteLine($"skipped: {cat.Skipped.Count}");
         Console.WriteLine($"wrote {mod}");
     }
 
-    static string Hover(Loc loc, Placement[] group, int dungeonText, bool collected = false)
-    {
-        // The item's own name in this language (Convergence's new items may only exist in English).
-        string name = GroupName(group.Select(m => loc.Name(m.Kind, m.ItemId) ?? m.Name).Distinct().ToList());
-        // A group's details only when every item has the same ones (e.g. a set's requirements).
-        var all = group.Select(m => m.Render(loc)).ToList();
-        var details = all.All(d => d.SequenceEqual(all[0])) ? all[0] : Array.Empty<string>();
-        return loc.Fit(name, details, Where(loc, group[0], dungeonText), collected);
-    }
+    // The item's own name in this language (Convergence's new items may only exist in English).
+    static string ItemName(Loc loc, Placement p) => loc.Name(p.Kind, p.ItemId) ?? p.Name;
 
-    /// One name for several items from one pickup: the first (a set's helm, in lot order) and how many
-    /// more ("Tree Sentinel Helm +3"). Shared words would read oddly ("of Solitude") in some sets and languages.
-    static string GroupName(List<string> names) => names.Count == 1 ? names[0] : $"{names[0]} +{names.Count - 1}";
+    static string Hover(Loc loc, Placement p, int dungeonText, bool collected = false) =>
+        loc.Fit(ItemName(loc, p), p.Render(loc), Where(loc, p, dungeonText), collected);
+
+    // A map point has 8 text lines: two (uncollected, collected) for the first item, the rest for
+    // the others; more than that are summed up on the last line ("Thiollier's Trousers +2").
+    const int MaxMoreLines = 6;
+    static int MoreLineCount(Placement[] group) => Math.Min(group.DistinctBy(m => m.ItemId).Count() - 1, MaxMoreLines);
+
+    static List<string> MoreLines(Loc loc, Placement[] group)
+    {
+        var rest = group.DistinctBy(m => m.ItemId).Skip(1).ToList();
+        var lines = rest.Take(MaxMoreLines).Select(m => loc.Fit(ItemName(loc, m), m.Render(loc))).ToList();
+        if (rest.Count > MaxMoreLines) lines[^1] = $"{ItemName(loc, rest[MaxMoreLines - 1])} +{rest.Count - MaxMoreLines}";
+        return lines;
+    }
 
     /// Where an item comes from, for its hover text: the boss or NPC that gives it, else the dungeon
     /// it's in. Null for items lying in the open world.
     static string Where(Loc loc, Placement p, int dungeonText)
     {
         string who = p.Who > 0 ? loc.NpcName(p.Who) : null;
+        // Roundtable Hold isn't part of the map's land, so say where these are.
+        if (IsRoundtable(p)) return who != null ? $"{loc.PlaceName(RoundtableText)}: {who}" : loc.PlaceName(RoundtableText);
         return p.Origin switch
         {
             Origin.Boss => who != null ? $"{loc.Boss}: {who}" : loc.Boss,
@@ -328,7 +359,7 @@ static class Builder
         var ps = marks.SelectMany(m => m.group.Select(p => (p, m.group, m.dungeonText)));
         foreach (var (p, group, dungeonText) in ps.OrderBy(x => x.p.Kind).ThenBy(x => x.p.Name))
         {
-            string hover = Hover(englishLoc, group, dungeonText).Replace("\"", "'");
+            string hover = string.Join(" / ", MoreLines(englishLoc, group).Prepend(Hover(englishLoc, group[0], dungeonText))).Replace("\"", "'");
             w.WriteLine($"{p.Kind},\"{p.Name}\",{string.Join("/", p.Stats)},{p.Origin},m{p.Area}_{p.GridX:00}_{p.GridZ:00},\"{p.Pos.X:0.0} {p.Pos.Y:0.0} {p.Pos.Z:0.0}\",\"{p.Source}\",\"{hover}\"");
         }
     }

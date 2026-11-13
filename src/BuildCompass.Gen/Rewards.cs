@@ -12,7 +12,9 @@ namespace BuildCompass.Gen;
 class Rewards
 {
     public record Enemy(string Map, MSBE.Part.Enemy Part, int NpcId);
-    public record Reward(int LotId, Enemy Enemy, bool Boss, int NameId, string Source);
+    /// A lootable object (a corpse the player searches), for rewards that no enemy death gives.
+    public record Prop(string Map, string Name, System.Numerics.Vector3 Position);
+    public record Reward(int LotId, Enemy Enemy, Prop Corpse, bool Boss, int NameId, string Source);
 
     // AwardItemLot, AwardItemsIncludingClients.
     static readonly HashSet<(int, int)> AwardInstrs = new() { (2003, 4), (2003, 36) };
@@ -20,6 +22,9 @@ class Rewards
     static readonly (int, int) HealthBar = (2003, 11);    // DisplayBossHealthBar(state, entity, slot, nameId)
     static readonly (int, int) SetFlag = (2003, 66);      // SetEventFlag(type, flag, state)
     static readonly HashSet<(int, int)> InitInstrs = new() { (2000, 0), (2000, 6) }; // [slot][event id][args...]
+    static readonly (int, int) ActionButton = (3, 24);    // IfActionButtonInArea(cond, param, entity): the thing searched
+    // Entity ids have at least this many digits; smaller values in an event are flags and offsets.
+    const int MinEntityId = 1_000_000;
 
     public readonly List<Reward> All = new();
 
@@ -28,7 +33,7 @@ class Rewards
     readonly Dictionary<long, Ev> events = new();
     readonly Dictionary<long, List<byte[]>> calls = new();
 
-    public Rewards(Dictionary<uint, Enemy> enemies)
+    public Rewards(Dictionary<uint, Enemy> enemies, Dictionary<uint, Prop> props)
     {
         var all = new List<Ev>();
         foreach (var path in Program.InFiles("*.emevd.dcx", "event"))
@@ -67,8 +72,15 @@ class Rewards
                 foreach (var args in Sites(ev))
                 {
                     if (Arg(ev, i, 0, args) is not int lot || lot <= 0) continue;
+                    // Searched loot: the event names exactly what is searched, an enemy's corpse or a corpse object.
+                    var searched = Instrs(ev, ActionButton).Select(b => Arg(ev, b.index, 8, args)).FirstOrDefault(e => e > 0);
+                    if (searched is int s && !enemies.ContainsKey((uint)s) && props.TryGetValue((uint)s, out var prop))
+                    {
+                        if (seen.Add((lot, (uint)s))) All.Add(new Reward(lot, null, prop, false, 0, $"{ev.File} ev {ev.E.ID}"));
+                        continue;
+                    }
                     // The enemy: a value in this event or its call; failing that, the event setting a flag it watches.
-                    var direct = Values(ev, args).ToList();
+                    var direct = (searched is int only ? new[] { only }.AsEnumerable() : Values(ev, args)).ToList();
                     var found = Find(ev, args, direct);
                     if (found == null)
                         foreach (var v in direct)
@@ -78,12 +90,12 @@ class Rewards
                     if (found == null) continue;
                     var (enemy, boss, entity) = found.Value;
                     if (!seen.Add((lot, enemy.Part.EntityID))) continue;
-                    All.Add(new Reward(lot, enemy, boss, names.GetValueOrDefault(entity), $"{ev.File} ev {ev.E.ID}"));
+                    All.Add(new Reward(lot, enemy, null, boss, names.GetValueOrDefault(entity), $"{ev.File} ev {ev.E.ID}"));
                 }
 
         (Enemy enemy, bool boss, int entity)? Find(Ev ev, byte[] args, List<int> values)
         {
-            foreach (var v in values)
+            foreach (var v in values.Where(v => v >= MinEntityId))
                 if (enemies.TryGetValue((uint)v, out var enemy))
                     return (enemy, Instrs(ev, BossDefeat).Any(), v);
             return null;
@@ -118,15 +130,19 @@ class Rewards
 
     /// Every enemy part in the game's maps by entity id, and by entity group id (the group's first
     /// member, e.g. a trio boss), with its NpcParam id.
-    public static Dictionary<uint, Enemy> LoadEnemies()
+    public static (Dictionary<uint, Enemy> enemies, Dictionary<uint, Prop> props) LoadParts()
     {
         var byId = new Dictionary<uint, Enemy>();
         var byGroup = new Dictionary<uint, Enemy>();
+        var props = new Dictionary<uint, Prop>();
         foreach (var path in Program.InFiles("*.msb.dcx", "map", "mapstudio"))
         {
             string map = Path.GetFileName(path).Split('.')[0];
             if (map.EndsWith("_99")) continue;
-            foreach (var e in MSBE.Read(path).Parts.Enemies)
+            var msb = MSBE.Read(path);
+            foreach (var a in msb.Parts.Assets)
+                if (a.EntityID != 0) props.TryAdd(a.EntityID, new Prop(map, a.Name, a.Position));
+            foreach (var e in msb.Parts.Enemies)
             {
                 var enemy = new Enemy(map, e, e.NPCParamID);
                 if (e.EntityID != 0) byId.TryAdd(e.EntityID, enemy);
@@ -134,6 +150,6 @@ class Rewards
             }
         }
         foreach (var (g, e) in byGroup) byId.TryAdd(g, e);
-        return byId;
+        return (byId, props);
     }
 }

@@ -11,6 +11,9 @@ namespace BuildCompass.Gen;
 /// adds lines (c1_19 / conditional c5_19), shows it (c1_140 + c1_10) until the menu closes, reads the
 /// choice (function 23 into r0) and jumps to a state that calls a subroutine group (c6_group) and
 /// comes back to state 1. Our toggle list is a new subroutine group in the same style.
+/// One map mark for the grace menu to recompute: its own flag, the flags that show it, and its pickup.
+record Mark(uint Flag, uint[] Shows, uint Pickup, Kind Kind, Stat[] Stats);
+
 static class GraceMenu
 {
     // EventTextForTalk ids (talk-menu lines). Collisions with vanilla are checked when patching.
@@ -26,22 +29,22 @@ static class GraceMenu
     const int EntryIndex = 60;        // talk-list index of our line (unused by vanilla and Convergence)
     const int DoneIndex = 99;
 
-    /// Toggle lines in menu order: the five stats, then the four "show all" kinds.
+    /// Toggle lines in menu order: the five stats, the kinds, then "Collected".
     public static List<string> ToggleLabels() =>
         Enum.GetValues<Stat>().Select(s => Builder.StatNames[s])
-            .Concat(Enum.GetValues<Kind>().Select(k => Builder.KindNames[k])).ToList();
+            .Concat(Enum.GetValues<Kind>().Select(k => Builder.KindNames[k])).Append("Collected").ToList();
 
     /// The menu's lines in one language: the game's own words for stats, item types and "Leave",
     /// and the compass's name in that language.
     public static Dictionary<int, string> Texts(Loc loc)
     {
         var t = new Dictionary<int, string> { [EntryText] = loc.CompassName, [DoneText] = loc.Done };
-        var labels = Enum.GetValues<Stat>().Select(loc.StatLong).Concat(Enum.GetValues<Kind>().Select(loc.KindLabel)).ToList();
+        var labels = Enum.GetValues<Stat>().Select(loc.StatLong).Concat(Enum.GetValues<Kind>().Select(loc.KindLabel)).Append(loc.CollectedLabel).ToList();
         for (int i = 0; i < labels.Count; i++) t[ToggleText(i)] = labels[i];
         return t;
     }
 
-    public static void Build(string mod, Dictionary<Stat, uint> statFlag, Dictionary<Kind, uint> kindFlag, Visibility vis)
+    public static void Build(string mod, Dictionary<Stat, uint> statFlag, Dictionary<Kind, uint> kindFlag, uint collectedFlag, Visibility vis, List<Mark> marks)
     {
         string src = Program.In("script", "talk", "m00_00_00_00.talkesdbnd.dcx");
         var bnd = BND4.Read(src);
@@ -82,7 +85,7 @@ static class GraceMenu
         };
 
         // 3. The toggle list.
-        var flags = Enum.GetValues<Stat>().Select(s => statFlag[s]).Concat(Enum.GetValues<Kind>().Select(k => kindFlag[k])).ToList();
+        var flags = Enum.GetValues<Stat>().Select(s => statFlag[s]).Concat(Enum.GetValues<Kind>().Select(k => kindFlag[k])).Append(collectedFlag).ToList();
         var group = new Dictionary<long, ESD.State>();
         const long Start = 0, Build = 1, Show = 2, Choose = 3, Exit = 9;
         group[Start] = Goto(always, Build);
@@ -124,7 +127,7 @@ static class GraceMenu
         // Leaving (Done or Back) first recomputes the derived visibility flags, then returns.
         const long ComputeStart = 100;
         choose.Conditions.Add(new ESD.Condition { TargetState = ComputeStart, Evaluator = always });
-        AddCompute(group, ComputeStart, Exit, always, statFlag, kindFlag, vis);
+        AddCompute(group, ComputeStart, Exit, always, statFlag, kindFlag, collectedFlag, vis, marks);
         group[Choose] = choose;
         group[Exit] = new ESD.State
         {
@@ -133,17 +136,74 @@ static class GraceMenu
         esd.StateGroups[ourGroup] = group;
 
         file.Bytes = esd.Write();
+        SelfTest(ESD.Read(file.Bytes).StateGroups[ourGroup], ComputeStart, Exit, statFlag, kindFlag, collectedFlag, marks);
         string outDir = Path.Combine(mod, "script", "talk");
         Directory.CreateDirectory(outDir);
         bnd.Write(Path.Combine(outDir, "m00_00_00_00.talkesdbnd.dcx"));
         Console.WriteLine($"grace menu: entry {EntryIndex} -> group {ourGroup} with {flags.Count} toggles");
     }
 
+    /// Runs the written compute chain over many toggle and pickup combinations and compares every
+    /// mark with the menu's rules, written out separately here. A mismatch fails the build.
+    static void SelfTest(Dictionary<long, ESD.State> group, long start, long done,
+        Dictionary<Stat, uint> statFlag, Dictionary<Kind, uint> kindFlag, uint collectedFlag, List<Mark> marks)
+    {
+        var rng = new Random(1);
+        int steps = 0;
+        const int Runs = 300;
+        for (int run = 0; run < Runs; run++)
+        {
+            double chance = run == 0 ? 0 : run == 1 ? 1 : rng.NextDouble();
+            var on = new HashSet<uint>();
+            foreach (var f in statFlag.Values.Concat(kindFlag.Values).Append(collectedFlag))
+                if (rng.NextDouble() < chance) on.Add(f);
+            foreach (var m in marks.Where(m => m.Pickup != 0))
+                if (rng.NextDouble() < chance) on.Add(m.Pickup);
+            // Old mark values must not survive a recompute.
+            foreach (var m in marks) if (rng.Next(2) == 0) on.Add(m.Flag);
+
+            int taken = 0;
+            for (long id = start; id != done; taken++)
+            {
+                var state = group[id];
+                var c = state.Conditions.First(x => Passes(x.Evaluator, on));
+                foreach (var cmd in c.PassCommands)
+                {
+                    uint flag = (uint)BitConverter.ToInt32(cmd.Arguments[0], 1);
+                    if (cmd.Arguments[1][0] == 65) on.Add(flag); else on.Remove(flag);
+                }
+                id = c.TargetState.Value;
+            }
+            steps = Math.Max(steps, taken);
+
+            var stats = statFlag.Where(s => on.Contains(s.Value)).Select(s => s.Key).ToList();
+            var kinds = Catalog.StatKinds.Where(k => on.Contains(kindFlag[k])).ToList();
+            foreach (var m in marks)
+            {
+                bool matches = !Catalog.StatKinds.Contains(m.Kind) ? on.Contains(kindFlag[m.Kind])
+                    : stats.Count == 0 ? kinds.Contains(m.Kind)
+                    : m.Stats.Intersect(stats).Any() && (kinds.Count == 0 || kinds.Contains(m.Kind));
+                bool hidden = m.Pickup != 0 && on.Contains(m.Pickup) && !on.Contains(collectedFlag);
+                if (on.Contains(m.Flag) != (matches && !hidden))
+                    throw new Exception($"grace menu self-test: mark {m.Flag} ({m.Kind}) wrong in run {run}");
+            }
+        }
+        Console.WriteLine($"grace menu self-test: {Runs} combinations of {marks.Count} marks OK, up to {steps} steps per menu close");
+    }
+
+    /// Reads back the two condition forms the chain uses: always, and FlagIsCond.
+    static bool Passes(byte[] e, HashSet<uint> on)
+    {
+        if (e.Length == 2) return true; // always
+        bool set = on.Contains((uint)BitConverter.ToInt32(e, 2));
+        return set == (e[8] == 65);
+    }
+
     /// Recomputes Visibility's flags as a chain of states starting at `first` and ending at `done`.
     /// Only single-flag checks with pass commands are used (the shape the toggles proved in-game);
     /// within a state the first passing condition wins, which gives the AND/OR logic.
     static void AddCompute(Dictionary<long, ESD.State> group, long first, long done, byte[] always,
-        Dictionary<Stat, uint> statFlag, Dictionary<Kind, uint> kindFlag, Visibility vis)
+        Dictionary<Stat, uint> statFlag, Dictionary<Kind, uint> kindFlag, uint collectedFlag, Visibility vis, List<Mark> marks)
     {
         var steps = new List<Func<long, long, ESD.State>>(); // (thisId, nextId) => state
 
@@ -179,10 +239,23 @@ static class GraceMenu
                 Conditions = { When(kindFlag[k], false, next, SetFlag(a, false)), When(vis.AnyStat, true, next, SetFlag(a, false)), Else(next, SetFlag(a, true)) },
             });
 
+        // Then each mark's own flag, with "Collected" read once: on, a mark just follows its filters;
+        // off, its pickup flag hides it first.
+        long branch = first + steps.Count, follow = branch + 1, hide = follow + marks.Count;
         for (int i = 0; i < steps.Count; i++)
+            group[first + i] = steps[i](first + i, first + i + 1);
+        group[branch] = new ESD.State { Conditions = { When(collectedFlag, true, follow), Else(hide) } };
+        for (int i = 0; i < marks.Count; i++)
         {
-            long id = first + i, next = i + 1 < steps.Count ? id + 1 : done;
-            group[id] = steps[i](id, next);
+            var m = marks[i];
+            long toFollow = i + 1 < marks.Count ? follow + i + 1 : done, toHide = i + 1 < marks.Count ? hide + i + 1 : done;
+            var shown = group[follow + i] = new ESD.State();
+            foreach (var f in m.Shows) shown.Conditions.Add(When(f, true, toFollow, SetFlag(m.Flag, true)));
+            shown.Conditions.Add(Else(toFollow, SetFlag(m.Flag, false)));
+            var hidden = group[hide + i] = new ESD.State();
+            if (m.Pickup != 0) hidden.Conditions.Add(When(m.Pickup, true, toHide, SetFlag(m.Flag, false)));
+            foreach (var f in m.Shows) hidden.Conditions.Add(When(f, true, toHide, SetFlag(m.Flag, true)));
+            hidden.Conditions.Add(Else(toHide, SetFlag(m.Flag, false)));
         }
     }
 

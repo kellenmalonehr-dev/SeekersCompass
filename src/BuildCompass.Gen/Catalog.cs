@@ -6,9 +6,9 @@ namespace BuildCompass.Gen;
 
 enum Stat { STR, DEX, INT, FAI, ARC }
 
-/// What a map mark stands for. Weapon to Talisman follow the stat filters; BellBearing (the
+/// What a map mark stands for. Weapon to Talisman follow the stat filters; the goods kinds (the
 /// smithing-stone and somberstone miners') has its own toggle.
-enum Kind { Weapon, Spell, Armor, Talisman, BellBearing }
+enum Kind { Weapon, Spell, Armor, Talisman, BellBearing, Whetstone, KeyItem }
 
 /// How the item is obtained: lying in the world, dropped by an enemy, by a named NPC, or a boss's reward.
 enum Origin { World, Drop, NpcDrop, Boss }
@@ -28,7 +28,13 @@ class Catalog
 {
     /// The kinds the stat and category toggles combine over (bell bearings stand alone).
     public static readonly Kind[] StatKinds = { Kind.Weapon, Kind.Spell, Kind.Armor, Kind.Talisman };
-    static readonly string[] BellBearingNames = { "Smithing-Stone Miner's Bell Bearing", "Somberstone Miner's Bell Bearing" };
+    /// Goods shown by their own toggle, by English name.
+    static readonly (Kind kind, string[] exact, string[] starts, string[] ends)[] GoodsKinds =
+    {
+        (Kind.BellBearing, new string[0], new[] { "Smithing-Stone Miner's Bell Bearing", "Somberstone Miner's Bell Bearing" }, new string[0]),
+        (Kind.Whetstone, new[] { "Whetstone Knife", "Iron Whetblade", "Red-Hot Whetblade", "Sanctified Whetblade", "Glintstone Whetblade", "Black Whetblade" }, new string[0], new string[0]),
+        (Kind.KeyItem, new[] { "Golden Seed", "Sacred Tear", "Memory Stone", "Talisman Pouch" }, new string[0], new[] { " Scroll", " Prayerbook" }),
+    };
 
     readonly GameData gd;
     readonly Text text;
@@ -86,11 +92,20 @@ class Catalog
         }
 
         // Lots event scripts award when an enemy dies, at that enemy's spot.
-        foreach (var r in new Rewards(Rewards.LoadEnemies()).All)
+        var (enemies, props) = Rewards.LoadParts();
+        foreach (var r in new Rewards(enemies, props).All)
         {
-            var parts = r.Enemy.Map.Substring(1).Split('_').Select(int.Parse).ToArray();
+            string map = r.Enemy?.Map ?? r.Corpse.Map;
+            var parts = map.Substring(1).Split('_').Select(int.Parse).ToArray();
             int area = parts[0];
             if (parts[3] != 0 && area is not (60 or 61)) continue;
+            if (r.Corpse != null)
+            {
+                var spot = Locate(area, parts, r.Corpse.Position, r.Corpse.Name);
+                foreach (var id in Chain(r.LotId, lotById))
+                    if (seenLots.Add(id)) AddLot(lotById[id], spot, $"{map} corpse {r.Corpse.Name} ({r.Source})", Origin.World, 0);
+                continue;
+            }
             var (origin, who) = Dropper(r.Enemy.Part, npcById.GetValueOrDefault(r.Enemy.NpcId), r.NameId, r.Boss);
             var loc = Locate(area, parts, r.Enemy.Part.Position, r.Enemy.Part.Name);
             foreach (var id in Chain(r.LotId, lotById))
@@ -151,20 +166,23 @@ class Catalog
         switch (cat)
         {
             case 2: return Weapon(id, flag, area, gx, gz, pos, source);
-            case 1: return Spell(id, flag, area, gx, gz, pos, source) ?? BellBearing(id, flag, area, gx, gz, pos, source);
+            case 1: return Spell(id, flag, area, gx, gz, pos, source) ?? Goods(id, flag, area, gx, gz, pos, source);
             case 3: return Armor(id, flag, area, gx, gz, pos, source);
             case 4: return Talisman(id, flag, area, gx, gz, pos, source);
             default: return null;
         }
     }
 
-    // --- bell bearings -----------------------------------------------------
+    // --- goods with their own toggle ----------------------------------------
 
-    Placement BellBearing(int id, uint flag, byte area, byte gx, byte gz, Vector3 pos, string source)
+    Placement Goods(int id, uint flag, byte area, byte gx, byte gz, Vector3 pos, string source)
     {
         string name = text.Get("GoodsName", id);
-        if (name == null || !BellBearingNames.Any(name.StartsWith)) return null;
-        return new Placement(Kind.BellBearing, id, name, _ => Array.Empty<string>(), new List<Stat>(), flag, area, gx, gz, pos, source);
+        if (name == null) return null;
+        foreach (var (kind, exact, starts, ends) in GoodsKinds)
+            if (exact.Contains(name) || starts.Any(name.StartsWith) || ends.Any(name.EndsWith))
+                return new Placement(kind, id, name, _ => Array.Empty<string>(), new List<Stat>(), flag, area, gx, gz, pos, source);
+        return null;
     }
 
     // --- weapons -----------------------------------------------------------
@@ -334,7 +352,7 @@ class Text
         Kind.Spell => Get("GoodsName", id),
         Kind.Armor => Get("ProtectorName", id),
         Kind.Talisman => Get("AccessoryName", id),
-        Kind.BellBearing => Get("GoodsName", id),
+        Kind.BellBearing or Kind.Whetstone or Kind.KeyItem => Get("GoodsName", id),
         _ => null,
     };
 

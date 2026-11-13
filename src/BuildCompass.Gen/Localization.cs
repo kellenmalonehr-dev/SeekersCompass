@@ -50,11 +50,20 @@ class Loc
 
     public string StatShort(Stat s) => Menu(StatShortIds[s], s.ToString());
     public string StatLong(Stat s) => Menu(StatLongIds[s], Builder.StatNames[s]);
-    public string KindLabel(Kind k) => k == Kind.BellBearing ? BellBearings : Menu(KindIds[k], Builder.KindNames[k]);
+    public string KindLabel(Kind k) => k switch
+    {
+        Kind.BellBearing => BellBearings,
+        Kind.Whetstone => IsEnglish ? Builder.KindNames[k] : items.Get("GoodsName", WhetstoneLabelGoods) ?? Builder.KindNames[k],
+        Kind.KeyItem => Menu(KeyItemsText, Builder.KindNames[k]),
+        _ => Menu(KindIds[k], Builder.KindNames[k]),
+    };
+    const int WhetstoneLabelGoods = 8590, KeyItemsText = 40513; // Whetstone Knife; "Key Items"
+    /// "Collected" for the grace menu: the hover word without its brackets, capitalized.
+    public string CollectedLabel => Collected.Trim('(', ')', '（', '）', '[', ']', '【', '】', ' ') is { Length: > 0 } w ? char.ToUpper(w[0]) + w[1..] : Collected;
     /// Bell bearings' grace menu line. Other languages use the game's own name for the Smithing-Stone
     /// Miner's Bell Bearing without its "[1]" (the game has no word for the group).
     string BellBearings => IsEnglish ? Builder.KindNames[Kind.BellBearing]
-        : System.Text.RegularExpressions.Regex.Replace(items.Get("GoodsName", BellBearingLabelGoods) ?? Builder.KindNames[Kind.BellBearing], @"\s*[\[【［(（]\s*1\s*[\]】］)）]\s*$", "");
+        : System.Text.RegularExpressions.Regex.Replace(items.Get("GoodsName", BellBearingLabelGoods) ?? Builder.KindNames[Kind.BellBearing], @"\s*[\[【［(（〔「『]\s*[1１]\s*[\]】］)）〕」』]\s*", " ").Trim();
     const int BellBearingLabelGoods = 8951; // Smithing-Stone Miner's Bell Bearing [1]
     public string Slot(string slot) => Menu(SlotIds[slot], slot);
     /// VIG/MND/END have no short form in the game's text; other languages get the full word.
@@ -72,7 +81,7 @@ class Loc
     // ---- the mod's own text (no game equivalent); translations by the author, corrections welcome ----
     static readonly Dictionary<string, string> CollectedWords = new()
     {
-        ["engus"] = "(collected)", ["frafr"] = "(obtenu)", ["deude"] = "(erhalten)", ["itait"] = "(ottenuto)",
+        ["engus"] = "(collected)", ["araae"] = "(تم الجمع)", ["frafr"] = "(obtenu)", ["deude"] = "(erhalten)", ["itait"] = "(ottenuto)",
         ["spaes"] = "(obtenido)", ["spaar"] = "(obtenido)", ["porbr"] = "(obtido)", ["polpl"] = "(zdobyte)",
         ["rusru"] = "(получено)", ["jpnjp"] = "（入手済み）", ["zhocn"] = "（已获得）", ["zhotw"] = "（已獲得）",
         ["korkr"] = "(획득함)", ["thath"] = "(ได้รับแล้ว)",

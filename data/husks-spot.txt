@@ -1,0 +1,5 @@
+# Where the Twin Maiden Husks stand in Roundtable Hold: name x y z yaw (yaw in radians).
+# The numbers are the layout of Game\OfflineMods\GraceItems\position.txt, so a spot can be copied
+# from there after standing on it in game, facing the way the Husks should face.
+# Picked in game on 2026-11-10: on the carpet about 6 m from Hewg, facing him.
+husks -290.698 -22.608 -308.916 -0.686

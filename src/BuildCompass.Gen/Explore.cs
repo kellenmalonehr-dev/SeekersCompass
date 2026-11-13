@@ -115,7 +115,8 @@ static class Explore
                 foreach (var (lot, _) in npcLots.Where(kv => kv.Value.Contains(e.NPCParamID)))
                     (dropMaps.TryGetValue(lot, out var l) ? l : dropMaps[lot] = new()).Add($"{map} {e.Name}");
         }
-        var rewards = new Rewards(Rewards.LoadEnemies()).All.GroupBy(r => r.LotId).ToDictionary(g => g.Key, g => g.First());
+        var (enemies0, props0) = Rewards.LoadParts();
+        var rewards = new Rewards(enemies0, props0).All.Where(r => r.Enemy != null).GroupBy(r => r.LotId).ToDictionary(g => g.Key, g => g.First());
         foreach (var (lot, name) in lots.OrderBy(kv => kv.Value))
         {
             var where = new List<string>();
@@ -150,6 +151,8 @@ static class Explore
     public static void EventDump(string[] args)
     {
         long want = long.Parse(args[0]);
+        // Optional second argument: only calls from files starting with it, decoded to ints.
+        string only = args.Length > 1 ? args[1] : null;
         int shownCalls = 0;
         foreach (var path in Program.InFiles("*.emevd.dcx", "event"))
             foreach (var ev in EMEVD.Read(path).Events)
@@ -163,8 +166,8 @@ static class Explore
                         Console.WriteLine($"  param: ins {p.InstructionIndex} target {p.TargetStartByte} <- src {p.SourceStartByte} ({p.ByteCount} bytes)");
                 }
                 foreach (var ins in ev.Instructions)
-                    if (ins.Bank == 2000 && (ins.ID == 0 || ins.ID == 6) && ins.ArgData.Length >= 8 && BitConverter.ToUInt32(ins.ArgData, 4) == want && shownCalls++ < 5)
-                        Console.WriteLine($"  call from {Path.GetFileName(path)} ev {ev.ID}: {BitConverter.ToString(ins.ArgData[8..])}");
+                    if (ins.Bank == 2000 && (ins.ID == 0 || ins.ID == 6) && ins.ArgData.Length >= 8 && BitConverter.ToUInt32(ins.ArgData, 4) == want && (only != null ? Path.GetFileName(path).StartsWith(only) : shownCalls++ < 5))
+                        Console.WriteLine($"  call from {Path.GetFileName(path)} ev {ev.ID}: " + (only != null ? string.Join(" ", Enumerable.Range(2, ins.ArgData.Length / 4 - 2).Select(k => BitConverter.ToInt32(ins.ArgData, k * 4))) : BitConverter.ToString(ins.ArgData[8..])));
             }
     }
 
@@ -175,15 +178,15 @@ static class Explore
         var text = new Text(Program.In("msg", "engus", "item_dlc02.msgbnd.dcx"));
         var lots = gd["ItemLotParam_map"];
         var npc = gd["NpcParam"];
-        var enemies = Rewards.LoadEnemies();
+        var (enemies, props) = Rewards.LoadParts();
         Console.WriteLine($"enemies with entity ids: {enemies.Count}");
-        var rewards = new Rewards(enemies);
+        var rewards = new Rewards(enemies, props);
         string ItemName(int cat, int id) => cat switch
         {
             1 => text.Get("GoodsName", id), 2 => text.Get("WeaponName", id - id % 100), 3 => text.Get("ProtectorName", id),
             4 => text.Get("AccessoryName", id), _ => null,
         };
-        foreach (var r in rewards.All.OrderBy(r => r.Enemy.Map))
+        foreach (var r in rewards.All.Where(r => r.Enemy != null).OrderBy(r => r.Enemy.Map))
         {
             var items = new List<string>();
             for (int id = r.LotId; id < r.LotId + 10 && lots[id] != null; id++)
@@ -281,5 +284,92 @@ static class NpcOffsets
             var d = p.xz - pos[near.ID].xz;
             Console.WriteLine($"npc {n.ID} a{n["areaNo"].Value} -> landmark {near.ID} icon {near["iconId"].Value}: dx {d.X:0.0} dz {d.Y:0.0} dist {d.Length():0.0}");
         }
+    }
+}
+
+/// How vanilla map points use their several hover text slots, and which event flags are free: `wmptext`.
+static class WmpText
+{
+    public static void Run()
+    {
+        var gd = GameData.Load(Program.In("regulation.bin"));
+        var text = new Text(Program.In("msg", "engus", "item_dlc02.msgbnd.dcx"));
+        var rows = gd["WorldMapPointParam"].Rows;
+        int two = 0, shown = 0;
+        foreach (var r in rows)
+        {
+            var t = Enumerable.Range(1, 8).Select(i => (id: r.Get<int>($"textId{i}"), en: r.Get<uint>($"textEnableFlagId{i}"), dis: r.Get<uint>($"textDisableFlagId{i}"))).Where(x => x.id > 0).ToList();
+            if (t.Count < 2) continue;
+            two++;
+            if (shown++ < 25) Console.WriteLine($"{r.ID} icon {r.Get<int>("iconId")} cleared {r.Get<uint>("clearedEventFlagId")}: " + string.Join(" / ", t.Select(x => $"{text.Get("PlaceName", x.id)} [+{x.en} -{x.dis}]")));
+        }
+        Console.WriteLine($"rows with 2+ texts: {two} of {rows.Count}; with cleared flag: {rows.Count(r => r.Get<uint>("clearedEventFlagId") != 0)}");
+        var used = FlagScan.UsedFlags(gd);
+        foreach (int k in new[] { 70, 71, 72, 73, 74, 75, 76, 77, 78, 79 })
+            Console.WriteLine($"{k}000-{k}999 used: {Enumerable.Range(k * 1000, 1000).Count(f => used.Contains((uint)f))}");
+    }
+}
+
+/// Checks a built mod's hover text in every language: `textaudit <mod folder>`.
+static class TextAudit
+{
+    public static void Run(string[] args)
+    {
+        foreach (var dir in Directory.GetDirectories(Path.Combine(args[0], "msg")))
+        {
+            string lang = Path.GetFileName(dir);
+            var bnd = BND4.Read(Path.Combine(dir, "item_dlc02.msgbnd.dcx"));
+            var place = FMG.Read(bnd.Files.First(f => Path.GetFileNameWithoutExtension(f.Name) == "PlaceName").Bytes);
+            var ours = place.Entries.Where(e => e.ID >= Builder.PlaceTextBase && e.Text != null).ToList();
+            var menu = BND4.Read(Path.Combine(dir, "menu_dlc02.msgbnd.dcx"));
+            var talk = FMG.Read(menu.Files.First(f => Path.GetFileNameWithoutExtension(f.Name) == "EventTextForTalk").Bytes);
+            string Label(int i) => talk[GraceMenu.TalkTextBase + 100 + i];
+            Console.WriteLine($"{lang}: {ours.Count} hover lines, widest {ours.Max(e => Loc.Width(e.Text))}, over limit {ours.Count(e => Loc.Width(e.Text) > Loc.MaxWidth)}, empty {ours.Count(e => e.Text.Length == 0)} | {Label(9)} / {Label(10)} / {Label(11)} / {Label(12)}");
+        }
+    }
+}
+
+/// Largest state groups in a talk file, to confirm a merged grace menu kept ours: `talkgroups <file>`.
+static class TalkGroups
+{
+    public static void Run(string[] args)
+    {
+        foreach (var f in BND4.Read(args[0]).Files.Where(f => f.Name.EndsWith("t000001000.esd")))
+            foreach (var (id, states) in ESD.Read(f.Bytes).StateGroups.OrderByDescending(g => g.Value.Count).Take(3))
+                Console.WriteLine($"{Path.GetFileName(f.Name)} group {id}: {states.Count} states");
+    }
+}
+
+/// Finds PlaceName entries by English text: `placefind <text>`.
+static class PlaceFind
+{
+    public static void Run(string[] args)
+    {
+        string q = string.Join(" ", args);
+        foreach (var name in new[] { "item.msgbnd.dcx", "item_dlc01.msgbnd.dcx", "item_dlc02.msgbnd.dcx" })
+            foreach (var f in BND4.Read(Program.In("msg", "engus", name)).Files.Where(f => Path.GetFileNameWithoutExtension(f.Name).StartsWith("PlaceName")))
+                foreach (var e in FMG.Read(f.Bytes).Entries.Where(e => e.Text != null && e.Text.Contains(q, StringComparison.OrdinalIgnoreCase)))
+                    Console.WriteLine($"{name} {e.ID}: {e.Text}");
+    }
+}
+
+/// Map rows at or naming Roundtable Hold, and every map row near its spot: `roundtable`.
+static class Roundtable
+{
+    public static void Run()
+    {
+        var gd = GameData.Load(Program.In("regulation.bin"));
+        var text = new Text(Program.In("msg", "engus", "item_dlc02.msgbnd.dcx"));
+        Builder.legacyConv = gd["WorldMapLegacyConvParam"].Rows;
+        var grace = gd["BonfireWarpParam"][111000];
+        foreach (var f in grace.Cells) if (f.Value is not (0 or 0f or (byte)0 or (ushort)0 or (uint)0 or (sbyte)0 or (short)0 or -1)) Console.WriteLine($"  {f.Def.InternalName} = {f.Value}");
+        foreach (var (name, rows) in new[] { ("WMP", gd["WorldMapPointParam"].Rows), ("Grace", gd["BonfireWarpParam"].Rows) })
+            foreach (var r in rows)
+            {
+                byte a = r.Get<byte>("areaNo"), gx = r.Get<byte>("gridXNo"), gz = r.Get<byte>("gridZNo");
+                var at = Builder.MapPos(a, gx, gz, new System.Numerics.Vector3(r.Get<float>("posX"), 0, r.Get<float>("posZ")));
+                if (at.space == 60 && at.xz.X < 10500 && at.xz.Y < 9300 || (name == "WMP" && r.Get<int>("iconId") is >= 100 and < 212))
+                    Console.WriteLine($"{name} {r.ID} icon {r.Get<int>("iconId")} m{a}_{gx}_{gz} {text.Get("PlaceName", r.Get<int>("textId1"))} -> {at}");
+            }
     }
 }
