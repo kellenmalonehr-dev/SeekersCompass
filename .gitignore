@@ -5,6 +5,7 @@ tools/
 # Build outputs (contain files derived from the game; never commit them)
 mod/
 mod-convergence/
+mod-hubs/
 out/
 release/staging/
 release/dist/
@@ -26,3 +27,4 @@ data/icons/9082ea00-*.png
 
 # Rust build output of the loader
 src/SeekersCompass.Loader/target/
+src/SeekersCompass.Dll/target/
