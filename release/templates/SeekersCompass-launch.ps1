@@ -93,6 +93,8 @@ game = "eldenring"
 id = "seekers-compass"
 path = "SeekersCompass"
 "@
+# The mod's DLL (loadouts, Grace Items, Damage Dial, auto pickup); its settings are beside it.
+if (Test-Path (Join-Path $here "SeekersCompass\seekers_compass.dll")) { $profileText += "`n`n[[natives]]`npath = 'SeekersCompass\seekers_compass.dll'`n" }
 if ($seamless) { $profileText += "`n`n[[natives]]`npath = '$ersc'`n" }
 $profilePath = Join-Path $here "SeekersCompass.me3"
 # Other mods can be added to this profile by their installers (Grace Loadouts, Grace Items): keep

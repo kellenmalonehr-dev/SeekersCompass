@@ -108,9 +108,11 @@ function Install-Into([string]$path) {
     $ourFiles = Get-RelativeFiles $ours | Where-Object { $_ -ne "requires-package.txt" }
     foreach ($other in $p.Packages) {
         if (-not $other.full -or ($base -and $other -eq $base) -or -not (Test-Path $other.full)) { continue }
-        # Grace Loadouts and Grace Items share the grace menu files but rebuild their copy on top of
-        # ours (below).
-        if ($other.id -in "grace-loadouts", "grace-items") { continue }
+        # Grace Loadouts and Grace Items were separate mods up to Seeker's Compass 1.3; they are part
+        # of it now, and their own copies of the grace menu would hide this version's.
+        if ($other.id -in "grace-loadouts", "grace-items") {
+            return "skipped: it still loads the separate mod '$($other.id)', which Seeker's Compass now includes. Run that mod's Uninstall first (your loadouts and Grace Items files stay in its folder; copy its loadouts\ or characters\ folder into SeekersCompass\ to keep them)."
+        }
         $shared = @(Get-RelativeFiles $other.full | Where-Object { $ourFiles -contains $_ })
         if ($shared.Count) {
             $label = if ($other.id) { "'$($other.id)'" } else { $other.path }
@@ -135,6 +137,9 @@ function Install-Into([string]$path) {
     $header = "[[$($p.Style)]]"
     $block = "$begin${nl}# order: 10${nl}$header${nl}id = `"seekers-compass`"${nl}path = $(Format-TomlPath $ours)${nl}"
     if ($base) { $block += "load_after = [{ id = `"$requires`", optional = false }]$nl" }
+    # The mod's DLL (loadouts, Grace Items, Damage Dial, auto pickup); its settings are beside it.
+    $dll = Join-Path $ours "seekers_compass.dll"
+    if (Test-Path $dll) { $block += "[[natives]]${nl}path = $(Format-TomlPath $dll)${nl}" }
     $block += $end
 
     $new = $clean

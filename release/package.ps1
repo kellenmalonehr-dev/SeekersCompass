@@ -16,6 +16,16 @@ $utf8 = New-Object Text.UTF8Encoding $false
 # and mod managers mangle; the generator (.NET 9) writes standard forward-slash entries.
 function New-Zip($dir, $zip) { dotnet $gen zip $dir $zip }
 function Write-Text($path, $text) { [IO.File]::WriteAllText($path, $text.Replace("`r`n", "`n").Replace("`n", "`r`n"), $utf8) }
+# The DLL half of the mod (built by src/SeekersCompass.Dll/build.sh) with its settings and the Grace
+# Items list. On Convergence, auto pickup starts switched off: Convergence has its own.
+function Add-Dll($package, $convergence) {
+    $dll = Join-Path $root "outdllseekers_compass.dll"
+    if (-not (Test-Path $dll)) { throw "outdllseekers_compass.dll is missing: run  bash src/SeekersCompass.Dll/build.sh  first." }
+    Copy-Item $dll, (Join-Path $root "datagrace_items.txt") $package
+    $ini = Get-Content (Join-Path $root "srcSeekersCompass.Dllseekers_compass.ini") -Raw
+    if ($convergence) { $ini = [regex]::Replace($ini, "(?s)([AutoPickup].*?Enabled = )1", "`${1}0") }
+    Write-Text (Join-Path $package "seekers_compass.ini") $ini
+}
 
 dotnet build (Join-Path $root "src\BuildCompass.Gen") -c Release -v q | Out-Null
 if (Test-Path $stage) { Remove-Item $stage -Recurse -Force }

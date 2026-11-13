@@ -1,10 +1,26 @@
 SEEKER'S COMPASS
 ================
 
-Marks weapons, spells, armor and talismans on the world map, filtered by the damage
-stats you choose, plus boss rewards (with a skull), enemy and NPC drops, and the
-Miner's Bell Bearings (their own grace menu line). Buy the Seeker's Compass from Merchant Kale at the Church of Elleh
-(100 runes), then pick "Seeker's Compass" at any Site of Grace.
+One mod, several features. Each can be switched off in SeekersCompass\seekers_compass.ini
+(the map marks and bell bearings are always on).
+
+- Map marks: weapons, spells, armor and talismans on the world map, filtered by the damage
+  stats you choose, plus boss rewards (with a skull), enemy and NPC drops, and the Miner's
+  Bell Bearings. Buy the Seeker's Compass from Merchant Kale at the Church of Elleh (100 runes),
+  then pick "Seeker's Compass" at any Site of Grace.
+- Loadouts: save and equip five gear sets per character from the grace menu.
+- Grace Items (Camp in the grace menu): items found at graces set a buff you earn with kills
+  and collect by resting.
+- Auto pickup: plants, placed items, remains and your lost runes are picked up in passing.
+- Merchant bell bearings: a wandering merchant gives theirs the first time you walk up to them.
+- Roundtable hubs: once a story boss is dead, Smithing Master Hewg and the Twin Maiden Husks
+  also stand in its room, and the room is listed under Roundtable Hold in the grace list.
+  In Roundtable Hold the Husks sit beside Hewg.
+- Damage Dial: scales the damage you take. Off unless you turn it on.
+
+Loadouts, Grace Items, auto pickup and the Damage Dial are the work of seekers_compass.dll.
+Its log, SeekersCompass\seekers_compass.log, starts each launch with the game version and
+which of them are on.
 
 REQUIREMENTS
 - Elden Ring (Steam)
@@ -67,9 +83,11 @@ NOTES
 - Conflicts with mods that also replace regulation.bin, the grace menu talk script
   (script/talk/m00_00_00_00), the item/menu text (msg/*) or menu/*/01_common.
   Convergence players: use the Convergence version of this mod instead.
-- Grace Loadouts and Grace Items also add grace menu lines. Install them the same way (all in
-  a Mod Engine 3 profile, or all with Install_Without_ModEngine.bat), in any order and any
-  combination: the installers merge the menus, and redo it when one of them is updated or
-  removed.
+- Grace Loadouts and Grace Items were separate mods up to Seeker's Compass 1.3 and are part of
+  it now. Install_Without_ModEngine.bat removes their separate installs and keeps your loadouts
+  and Grace Items progress; with Mod Engine 3, run their own Uninstall first.
+- Updating keeps seekers_compass.ini, loadouts and characters (game-folder install). With
+  Mod Engine 3 they live in the extracted SeekersCompass folder: copy them over to a new one.
+- It also replaces event/common, and the map, talk and event files of the hub rooms.
 - Seamless Co-op's own launcher only loads Seamless itself; with option C installed,
   Seeker's Compass loads alongside it.
