@@ -8,12 +8,13 @@
 //!
 //! The mechanism, the row lists and the shape of the hook follow ALR2310's Auto Pickup
 //! (https://github.com/ALR2310/ERMods, MIT licence, Copyright (c) 2026 ALR2310), whose notes
-//! record it as confirmed in game on 2.7.2.0. Splitting enemy drops (row 4000) from items placed
-//! in the world is this mod's own guess and is marked below.
+//! record it as confirmed in game on 2.7.2.0. Which row is an enemy drop comes from this mod's own
+//! log in play.
 
 use std::sync::atomic::{AtomicU8, AtomicU32, AtomicUsize, Ordering};
 
-use eldenring::cs::{CSTaskGroupIndex, CSTaskImp};
+use eldenring::cs::{CSTaskGroupIndex, CSTaskImp, GameSystemCommonParam, SoloParamRepository};
+use fromsoftware_shared::FromStatic;
 use windows::Win32::System::Memory::{MEM_COMMIT, MEM_RESERVE, PAGE_EXECUTE_READWRITE, PAGE_PROTECTION_FLAGS, VirtualAlloc, VirtualProtect};
 
 use crate::scan;
@@ -24,13 +25,12 @@ enum Kind {
     Items,
     Remains,
     EnemyDrops,
-    CorpseLoot,
     LostRunes,
     Chests,
 }
 
 impl Kind {
-    const ALL: [Kind; 7] = [Kind::Materials, Kind::Items, Kind::Remains, Kind::EnemyDrops, Kind::CorpseLoot, Kind::LostRunes, Kind::Chests];
+    const ALL: [Kind; 6] = [Kind::Materials, Kind::Items, Kind::Remains, Kind::EnemyDrops, Kind::LostRunes, Kind::Chests];
 
     const fn bit(self) -> u8 {
         1 << self as u8
@@ -43,7 +43,6 @@ impl Kind {
             Kind::Items => ("items", true),
             Kind::Remains => ("remains", true),
             Kind::EnemyDrops => ("enemydrops", false),
-            Kind::CorpseLoot => ("corpseloot", false),
             Kind::LostRunes => ("lostrunes", true),
             Kind::Chests => ("chests", false),
         }
@@ -55,7 +54,6 @@ impl Kind {
             Kind::Items => &ITEMS,
             Kind::Remains => &REMAINS,
             Kind::EnemyDrops => &ENEMY_DROPS,
-            Kind::CorpseLoot => &CORPSE_LOOT,
             Kind::LostRunes => &LOST_RUNES,
             Kind::Chests => &CHESTS,
         }
@@ -78,11 +76,9 @@ const MATERIALS: [u32; 112] = [
 const ITEMS: [u32; 13] = [4110, 4250, 4251, 4252, 4253, 4260, 4261, 4270, 4280, 4350, 6361, 209210, 209524];
 /// Remains placed in the world ("Pillage remains").
 const REMAINS: [u32; 4] = [4200, 4201, 4202, 9532];
-/// What a killed enemy leaves. A guess: 4000 is the plain "Pick up item" row, apart from the
-/// rows the game's own data ties to placed items. To be confirmed from the log in game.
-const ENEMY_DROPS: [u32; 1] = [4000];
-/// "Pillage corpse".
-const CORPSE_LOOT: [u32; 1] = [4100];
+/// What a killed enemy leaves: 4100, seen in game on 2.7.2.0. 4000, the plain "Pick up item" row,
+/// has not come up in play yet and is kept with it, so it stays off unless asked for.
+const ENEMY_DROPS: [u32; 2] = [4000, 4100];
 /// Your dropped runes after dying.
 const LOST_RUNES: [u32; 1] = [1000];
 /// "Search treasure chest". Off unless asked for: a mimic opens the same way.
@@ -215,6 +211,10 @@ pub fn start(tasks: &CSTaskImp) -> Result<(), String> {
 struct State {
     frames: u32,
     mask: Option<u8>,
+    /// The game's own pick-up animations for placed items and remains, kept to put back.
+    animations: Option<(i32, i32)>,
+    /// Whether the animation is currently switched off.
+    no_animation: Option<bool>,
     /// How many `SEEN` slots have been logged.
     logged: usize,
 }
@@ -237,6 +237,11 @@ impl State {
             self.mask = Some(mask);
             ENABLED.store(mask, Ordering::Relaxed);
         }
+        let skip = ini.iter().find(|(name, _)| name == "animation").is_some_and(|(_, v)| v == "0");
+        if self.no_animation != Some(skip) && self.set_animation(skip) {
+            log(if skip { "pick-up animation off" } else { "pick-up animation as in the game" });
+            self.no_animation = Some(skip);
+        }
         // What the hook has met so far, once each: tells which row a thing in the world uses.
         while self.logged < SEEN.len() {
             let entry = SEEN[self.logged].load(Ordering::Relaxed);
@@ -251,5 +256,24 @@ impl State {
                 None => log(&format!("row {id}: another interaction, left to the button")),
             }
         }
+    }
+}
+
+/// An animation id the game doesn't have, so nothing plays.
+const NO_ANIMATION: i32 = 999_999;
+
+impl State {
+    /// Placed items and remains take their pick-up animation from one row of
+    /// GameSystemCommonParam (after ALR2310's notes, confirmed there on 2.7.2.0). False while the
+    /// game's tables aren't loaded yet.
+    fn set_animation(&mut self, skip: bool) -> bool {
+        let Ok(params) = (unsafe { SoloParamRepository::instance_mut() }) else { return false };
+        let Some(row) = params.get_mut::<GameSystemCommonParam>(0) else { return false };
+        let (shine, corpse) = *self.animations.get_or_insert_with(|| {
+            (row.msb_event_geom_treasure_info_item_get_anim_id_shine(), row.msb_event_geom_treasure_info_item_get_anim_id_corpse())
+        });
+        row.set_msb_event_geom_treasure_info_item_get_anim_id_shine(if skip { NO_ANIMATION } else { shine });
+        row.set_msb_event_geom_treasure_info_item_get_anim_id_corpse(if skip { NO_ANIMATION } else { corpse });
+        true
     }
 }
