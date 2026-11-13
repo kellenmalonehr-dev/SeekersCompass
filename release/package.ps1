@@ -34,6 +34,7 @@ New-Item -ItemType Directory -Force $stage, $dist | Out-Null
 # ---------------- vanilla ----------------
 $v = Join-Path $stage "vanilla"
 dotnet $gen build --out "release\staging\vanilla\SeekersCompass" | Select-String "placements|grace menu:|wrote|Exception"
+Add-Dll (Join-Path $v "SeekersCompass") $false
 Copy-Item (Join-Path $PSScriptRoot "templates\README.txt") $v
 Copy-Item (Join-Path $PSScriptRoot "templates\Launch_SeekersCompass.bat") $v
 # The launcher writes SeekersCompass.me3 at each launch (Seamless detection, save choice).
@@ -73,6 +74,7 @@ if (-not $Convergence -or -not (Test-Path (Join-Path $Convergence "mod\regulatio
 $c = Join-Path $stage "convergence"
 $cver = (Get-Content (Join-Path $Convergence "version.txt") -Raw).Trim()
 dotnet $gen build --base (Join-Path $Convergence "mod") --out "release\staging\convergence\SeekersCompass-Convergence" | Select-String "placements|grace menu:|wrote|Exception"
+Add-Dll (Join-Path $c "SeekersCompass-Convergence") $true
 # Tells the setup script this build carries Convergence's own files, so it must load after Convergence's package.
 Write-Text (Join-Path $c "SeekersCompass-Convergence\requires-package.txt") "convergence-er"
 # And which Convergence version, so the setup script refuses any other.

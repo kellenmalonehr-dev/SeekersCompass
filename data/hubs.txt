@@ -6,7 +6,7 @@
 # "icon" also draws the room's travel entry on the map beside Roundtable Hold's; without it the
 # room is only listed under Roundtable Hold in the grace list.
 # The list comes from `arenas` (work\arenas.tsv), checked by hand. Left out for now because their
-# talk files aren't unpacked: Astel (m12_04), Metyr (m25_00), Starscourge Radahn (m60_52_38).
+# grace stands in an open-world tile, which needs more work: Starscourge Radahn.
 m14_00_00_00 14001951 14000850 spots=hub-debate-parlor.txt icon   # Debate Parlor (Red Wolf of Radagon)
 m14_00_00_00 14001950 9118        # Raya Lucaria Grand Library (Rennala)
 m10_00_00_00 10001951 10000850 landing-side    # Margit, the Fell Omen (far side is the sloping gateway)
@@ -32,3 +32,5 @@ m21_00_00_00 21001951 21000850    # Main Gate Plaza (Golden Hippopotamus)
 m21_01_00_00 21011950 21010800    # Messmer's Dark Chamber
 m22_00_00_00 22001950 22000800    # Garden of Deep Purple (Putrescent Knight)
 m28_00_00_00 28001950 28000800    # Discussion Chamber (Midra)
+m12_04_00_00 12041950 12040800    # Astel, Naturalborn of the Void (no talk file of its own)
+m25_00_00_00 25001950 25000800    # Finger Birthing Grounds (Metyr; no talk file of its own)

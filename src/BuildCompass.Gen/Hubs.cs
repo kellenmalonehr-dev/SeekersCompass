@@ -93,25 +93,30 @@ static class Hubs
 
         var hubs = ReadHubs();
         int order = 0, skipped = 0;
+        // A map with no characters to talk to has no talk file of its own. Its residents' scripts go
+        // into the common talk file instead (m00_00_00_00, where the grace menu lives), which is
+        // loaded everywhere.
+        const string Common = "m00_00_00_00";
+        BND4 commonTalk = null;
+        var addedCommon = new HashSet<string>();
         foreach (var room in hubs.GroupBy(h => h.Map))
         {
             string map = room.Key;
             string talkPath = Program.In("script", "talk", map + ".talkesdbnd.dcx");
-            if (!File.Exists(talkPath))
-            {
-                Console.WriteLine($"{map}: SKIPPED, its talk file isn't unpacked ({talkPath})");
-                skipped += room.Count();
-                continue;
-            }
+            bool own = File.Exists(talkPath);
+            if (!own) commonTalk ??= BND4.Read(Program.In("script", "talk", Common + ".talkesdbnd.dcx"));
             var msb = MSBE.Read(Program.In("map", "mapstudio", map + ".msb.dcx"));
-            var talk = BND4.Read(talkPath);
+            var talk = own ? BND4.Read(talkPath) : commonTalk;
             var emevd = EMEVD.Read(Program.In("event", map + ".emevd.dcx"));
-            var addedTalk = new HashSet<string>();
+            var addedTalk = own ? new HashSet<string>() : addedCommon;
+            if (!own) Console.WriteLine($"{map}: no talk file of its own; scripts go into {Common}");
             foreach (var hub in room) BuildHub(hub, order++, msb, talk, addedTalk, emevd, source, holdTalk, emedf, warp);
             msb.Write(OutFile(outDir, "map", "mapstudio", map + ".msb.dcx"));
-            talk.Write(OutFile(outDir, "script", "talk", map + ".talkesdbnd.dcx"));
+            if (own) talk.Write(OutFile(outDir, "script", "talk", map + ".talkesdbnd.dcx"));
             emevd.Write(OutFile(outDir, "event", map + ".emevd.dcx"));
         }
+        commonTalk?.Write(OutFile(outDir, "script", "talk", Common + ".talkesdbnd.dcx"));
+
 
         warp.Rows = warp.Rows.OrderBy(r => r.ID).ToList();
         gd.Regulation.Files.First(f => Path.GetFileNameWithoutExtension(f.Name) == "BonfireWarpParam").Bytes = warp.Write();
