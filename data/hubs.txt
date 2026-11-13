@@ -10,7 +10,7 @@
 m14_00_00_00 14001951 14000850 spots=hub-debate-parlor.txt icon   # Debate Parlor (Red Wolf of Radagon)
 m14_00_00_00 14001950 9118        # Raya Lucaria Grand Library (Rennala)
 m10_00_00_00 10001951 10000850 landing-side    # Margit, the Fell Omen (far side is the sloping gateway)
-m10_00_00_00 10001950 9101 landing-side        # Godrick the Grafted (far side is graves and flower beds)
+m10_00_00_00 10001950 9101 spots=hub-godrick.txt   # Godrick the Grafted (uneven paving; far side is graves and flower beds)
 m11_00_00_00 11001951 11000850    # Erdtree Sanctuary (Godfrey's shade)
 m11_00_00_00 11001950 11000800    # Elden Throne (Morgott)
 m11_05_00_00 11051951 9106        # Erdtree Sanctuary, Capital of Ash (Sir Gideon)

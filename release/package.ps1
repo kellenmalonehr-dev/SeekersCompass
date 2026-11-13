@@ -19,11 +19,11 @@ function Write-Text($path, $text) { [IO.File]::WriteAllText($path, $text.Replace
 # The DLL half of the mod (built by src/SeekersCompass.Dll/build.sh) with its settings and the Grace
 # Items list. On Convergence, auto pickup starts switched off: Convergence has its own.
 function Add-Dll($package, $convergence) {
-    $dll = Join-Path $root "outdllseekers_compass.dll"
-    if (-not (Test-Path $dll)) { throw "outdllseekers_compass.dll is missing: run  bash src/SeekersCompass.Dll/build.sh  first." }
-    Copy-Item $dll, (Join-Path $root "datagrace_items.txt") $package
-    $ini = Get-Content (Join-Path $root "srcSeekersCompass.Dllseekers_compass.ini") -Raw
-    if ($convergence) { $ini = [regex]::Replace($ini, "(?s)([AutoPickup].*?Enabled = )1", "`${1}0") }
+    $dll = Join-Path $root "out\dll\seekers_compass.dll"
+    if (-not (Test-Path $dll)) { throw "out\dll\seekers_compass.dll is missing: run  bash src/SeekersCompass.Dll/build.sh  first." }
+    Copy-Item $dll, (Join-Path $root "data\grace_items.txt") $package
+    $ini = Get-Content (Join-Path $root "src\SeekersCompass.Dll\seekers_compass.ini") -Raw
+    if ($convergence) { $ini = [regex]::Replace($ini, '(?s)(\[AutoPickup\].*?Enabled = )1', '${1}0') }
     Write-Text (Join-Path $package "seekers_compass.ini") $ini
 }
 
