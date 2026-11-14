@@ -98,6 +98,9 @@ static class Hubs
                     File.Delete(f);
         if (ai >= 0) Program.Over = outDir;
 
+        var gd = GameData.Load(Program.In("regulation.bin"));
+        PrepareMerchant(gd);
+
         string holdPath = Program.In("map", "mapstudio", Roundtable + ".msb.dcx");
         var hold = MSBE.Read(holdPath);
         MoveHusks(hold, Spot.Read(DataFile("husks-spot.txt"))["husks"]);
@@ -106,8 +109,11 @@ static class Hubs
         var source = MSBE.Read(holdPath); // untouched, to copy characters from
         var holdTalk = BND4.Read(Program.In("script", "talk", Roundtable + ".talkesdbnd.dcx"));
         var emedf = new Emedf(Path.Combine(Program.Root, "deps", "DarkScript3", "DarkScript3", "Resources", "er-common.emedf.json"));
-        var gd = GameData.Load(Program.In("regulation.bin"));
         var warp = gd["BonfireWarpParam"];
+        // The Husks' one shop, in the copy of their script that every hub room gets and in Roundtable Hold's own.
+        var shops = gd["ShopLineupParam"];
+        OneShop.Apply(holdTalk, shops);
+        holdTalk.Write(OutFile(outDir, "script", "talk", Roundtable + ".talkesdbnd.dcx"));
 
         var hubs = ReadHubs();
         rooms.Clear();
@@ -151,6 +157,8 @@ static class Hubs
 
         warp.Rows = warp.Rows.OrderBy(r => r.ID).ToList();
         gd.Regulation.Files.First(f => Path.GetFileNameWithoutExtension(f.Name) == "BonfireWarpParam").Bytes = warp.Write();
+        gd.Regulation.Files.First(f => Path.GetFileNameWithoutExtension(f.Name) == "ShopLineupParam").Bytes = shops.Write();
+        gd.Regulation.Files.First(f => Path.GetFileNameWithoutExtension(f.Name) == "NpcParam").Bytes = gd["NpcParam"].Write();
         SoulsFormats.Cryptography.RegulationDecryptor.EncryptERRegulation(Path.Combine(outDir, "regulation.bin"), gd.Regulation);
         Console.WriteLine($"wrote {outDir}: {order} hubs in {hubs.Select(h => h.Map).Distinct().Count()} maps{(skipped > 0 ? $", {skipped} skipped" : "")}");
         Program.Over = null;
@@ -210,6 +218,61 @@ static class Hubs
             a.UnkPartNames = (string[])local.UnkPartNames.Clone();
         }
         talker.CollisionPartName = local.UnkPartNames[3];
+
+        // The Husks' body goes, and a merchant sits where their talker stood, as that same entity.
+        foreach (var body in msb.Parts.Assets.Where(a => a.ModelName == HusksBody && props.Contains(a)).ToList()) msb.Parts.Assets.Remove(body);
+        var seller = AsMerchant(talker);
+        seller.Name = $"{seller.ModelName}_{talker.Name[(talker.Name.LastIndexOf('_') + 1)..]}";
+        seller.InstanceID = talker.InstanceID;
+        seller.Unk1 = talker.Unk1.DeepCopy();
+        seller.Gparam = talker.Gparam.DeepCopy();
+        seller.Unk8 = talker.Unk8.DeepCopy();
+        seller.TileLoad = talker.TileLoad.DeepCopy();
+        msb.Parts.Enemies.Remove(talker);
+        msb.Parts.Enemies.Add(seller);
+        if (!msb.Models.Enemies.Any(m => m.Name == seller.ModelName))
+        {
+            var like = msb.Models.Enemies.First();
+            msb.Models.Enemies.Add(new MSBE.Model.Enemy { Name = seller.ModelName, SibPath = like.SibPath.Replace(like.Name, seller.ModelName) });
+        }
+    }
+
+    // ---- the Husks as a travelling merchant who plays his instrument ---------------------------
+    // Four merchants in the game play: their NpcParam rows have vowType 1 and special effect 11035
+    // (Nomadic Merchants 1 and 7, the Abandoned and the Imprisoned Merchant). The Husks become a
+    // copy of the first, under the Husks' own name and with the Husks' talk script and shop.
+    const string HusksBody = "AEG221_527";
+    const string MerchantMap = "m60_44_39_00", MerchantPart = "c3200_9000";
+    const int MerchantNpc = 32001110, HusksNpc = 500020079, HusksMerchantNpc = 32009790;
+    static MSBE.Part.Enemy merchantTemplate;
+
+    /// Adds the merchant's NpcParam row (the playing merchant, named as the Husks, dropping nothing)
+    /// and reads the merchant's map placement to copy from.
+    static void PrepareMerchant(GameData gd)
+    {
+        var npc = gd["NpcParam"];
+        if (npc[HusksMerchantNpc] != null) throw new Exception($"NpcParam row {HusksMerchantNpc} already exists");
+        var row = new PARAM.Row(npc[MerchantNpc] ?? throw new Exception("the playing merchant's NpcParam row is missing")) { ID = HusksMerchantNpc, Name = "" };
+        row.Set("nameId", npc[HusksNpc].Get<int>("nameId"));
+        row.Set("itemLotId_map", -1);
+        row.Set("itemLotId_enemy", -1);
+        npc.Rows.Add(row);
+        npc.Rows = npc.Rows.OrderBy(r => r.ID).ToList();
+        merchantTemplate = MSBE.Read(Program.In("map", "mapstudio", MerchantMap + ".msb.dcx")).Parts.Enemies.First(e => e.Name == MerchantPart);
+    }
+
+    /// The merchant in the Husks' place: same spot, facing, entity, floor piece and talk script.
+    static MSBE.Part.Enemy AsMerchant(MSBE.Part.Enemy husks)
+    {
+        var m = (MSBE.Part.Enemy)merchantTemplate.DeepCopy();
+        m.Position = husks.Position;
+        m.Rotation = husks.Rotation;
+        m.EntityID = husks.EntityID;
+        for (int i = 0; i < m.EntityGroupIDs.Length; i++) m.EntityGroupIDs[i] = 0;
+        m.TalkID = husks.TalkID;
+        m.NPCParamID = HusksMerchantNpc;
+        m.CollisionPartName = husks.CollisionPartName;
+        return m;
     }
 
     /// Spots for a room that has no spot file: the residents stand in an arc on the far side of
@@ -267,9 +330,11 @@ static class Hubs
             // --- map: copies of the character and its props
             var spot = spots[g.Key];
             var (srcCharacter, srcProps) = Find(source, g);
+            if (g == Husks) srcProps = srcProps.Where(a => a.ModelName != HusksBody).ToList();
             var character = (MSBE.Part.Enemy)srcCharacter.DeepCopy();
             var props = srcProps.Select(a => (MSBE.Part.Asset)a.DeepCopy()).ToList();
             Place(g, character, props, spot);
+            if (g == Husks) character = AsMerchant(character);
 
             // Lighting, draw groups and floor come from what already stands in the room: the nearest
             // fixed prop (at this height if there is one) and the nearest talk dummy.

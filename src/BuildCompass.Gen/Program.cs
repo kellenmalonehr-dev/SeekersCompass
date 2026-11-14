@@ -100,6 +100,7 @@ static class Program
             case "partpos": PartPos.Run(args.Skip(1).ToArray()); return 0;
             case "paramrow": ParamRow.Run(args.Skip(1).ToArray()); return 0;
             case "people": MapPeople.Run(args.Skip(1).ToArray()); return 0;
+            case "modelparts": ModelParts.Run(args.Skip(1).ToArray()); return 0;
             case "fmgexact": FmgExact.Run(args.Skip(1).ToArray()); return 0;
             case "textcheck": TextCheck.Run(args.Skip(1).ToArray()); return 0;
             case "tpf": Tpf.List(args.Skip(1).ToArray()); return 0;

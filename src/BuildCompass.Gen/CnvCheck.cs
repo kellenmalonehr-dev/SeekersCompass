@@ -165,3 +165,19 @@ static class MapPeople
         }
     }
 }
+
+static class ModelParts
+{
+    /// `modelparts <model>`: every placement of a character model in the game's maps, with the
+    /// settings that decide how it behaves.
+    public static void Run(string[] args)
+    {
+        foreach (var path in Program.InFiles("*.msb.dcx", "map", "mapstudio"))
+        {
+            string map = Path.GetFileName(path).Split('.')[0];
+            if (map.EndsWith("_99")) continue;
+            foreach (var e in MSBE.Read(path).Parts.Enemies.Where(e => e.ModelName == args[0]))
+                Console.WriteLine($"{map} {e.Name} npc {e.NPCParamID} think {e.ThinkParamID} talk {e.TalkID} init {e.CharaInitID} anim {e.BackupEventAnimID} spEffectSet {string.Join(",", e.SpEffectSetParamID)} entity {e.EntityID}");
+        }
+    }
+}
