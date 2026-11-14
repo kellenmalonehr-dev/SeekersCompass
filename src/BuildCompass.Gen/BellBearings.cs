@@ -13,7 +13,7 @@ namespace BuildCompass.Gen;
 /// the seller then drops nothing on death.
 static class BellBearings
 {
-    const int OpenShop = 22, AwardLot = 104, GetFlag = 15;
+    const int OpenShop = 22, ClearMenu = 20, AwardLot = 104, GetFlag = 15;
 
     record Seller(int TalkId, int Lot, uint Flag, string Bell, string Where);
 
@@ -104,8 +104,11 @@ static class BellBearings
                 byte[] once = esd.Write();
                 if (!ESD.Read(once).Write().AsSpan().SequenceEqual(once)) throw new Exception($"{f.Name} is not stable when read and written");
                 int shops = 0;
+                // Only scripts that sell something. In those, the gift comes before the talk menu is built (so on
+                // the first conversation, without choosing anything) and, for a seller with no menu, before the shop.
+                if (!esd.StateGroups.Values.Any(g => g.Values.Any(s => s.EntryCommands.Any(c => c.CommandBank == 1 && c.CommandID == OpenShop)))) continue;
                 foreach (var group in esd.StateGroups.Values)
-                    foreach (long shop in group.Where(s => s.Value.EntryCommands.Any(c => c.CommandBank == 1 && c.CommandID == OpenShop)).Select(s => s.Key).ToList())
+                    foreach (long shop in group.Where(s => s.Value.EntryCommands.Any(c => c.CommandBank == 1 && (c.CommandID == OpenShop || c.CommandID == ClearMenu))).Select(s => s.Key).ToList())
                     {
                         if (shop == 0) throw new Exception($"{f.Name}: a shop opens in a group's first state, which can't be given a state in front");
                         long check = group.Keys.Max() + 1, give = check + 1;
@@ -129,7 +132,7 @@ static class BellBearings
                 f.Bytes = esd.Write();
                 changed = true;
                 done.Add(Path.GetFileName(f.Name));
-                Console.WriteLine($"  {seller.Bell,-40} {Path.GetFileName(path).Split('.')[0]} {Path.GetFileName(f.Name)}, {shops} shop state{(shops > 1 ? "s" : "")}; lot {seller.Lot} flag {seller.Flag} ({seller.Where})");
+                Console.WriteLine($"  {seller.Bell,-40} {Path.GetFileName(path).Split('.')[0]} {Path.GetFileName(f.Name)}, {shops} menu and shop state{(shops > 1 ? "s" : "")}; lot {seller.Lot} flag {seller.Flag} ({seller.Where})");
             }
             if (!changed) continue;
             Directory.CreateDirectory(talkDir);
@@ -137,6 +140,6 @@ static class BellBearings
         }
         foreach (var s in sellers.Where(s => !done.Contains(s.Key)))
             Console.WriteLine($"  {s.Value.Bell}: {s.Key} ({s.Value.Where}) opens no shop; left alone");
-        Console.WriteLine($"bell bearings: {done.Count} talk scripts give theirs when the shop is first opened");
+        Console.WriteLine($"bell bearings: {done.Count} talk scripts give theirs the first time their menu comes up");
     }
 }

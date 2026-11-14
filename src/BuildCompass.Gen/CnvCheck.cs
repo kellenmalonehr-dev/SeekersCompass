@@ -120,3 +120,14 @@ static class TalkCmd
 
     static IEnumerable<ESD.CommandCall> All(ESD.Condition c) => c.PassCommands.Concat(c.Subconditions.SelectMany(All));
 }
+
+static class PartPos
+{
+    /// `partpos <map> <name part>`: where the map's parts whose name contains the text stand.
+    public static void Run(string[] args)
+    {
+        var msb = MSBE.Read(Program.In("map", "mapstudio", args[0] + ".msb.dcx"));
+        foreach (var p in msb.Parts.GetEntries().Where(p => p.Name.Contains(args[1])))
+            Console.WriteLine($"{p.Name} entity {p.EntityID} at {p.Position.X:0.00} {p.Position.Y:0.00} {p.Position.Z:0.00} facing {p.Rotation.Y:0.#}");
+    }
+}
