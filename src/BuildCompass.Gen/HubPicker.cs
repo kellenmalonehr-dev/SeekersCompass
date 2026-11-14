@@ -30,6 +30,7 @@ static class HubPicker
     public static Dictionary<int, string> Texts(Text place, int holdText, IEnumerable<Room> rooms)
     {
         var d = new Dictionary<int, string> { [EntryText] = place.Get("PlaceName", holdText) ?? "Roundtable Hold" };
+        if (place.Get("PlaceName", holdText) == null) Console.WriteLine("  hub list: no place name for Roundtable Hold in this language; English used");
         foreach (var r in rooms) d[RoomText(r)] = place.Get("PlaceName", r.PlaceText) ?? $"Hub {r.Order + 1}";
         return d;
     }

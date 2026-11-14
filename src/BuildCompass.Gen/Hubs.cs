@@ -55,6 +55,7 @@ static class Hubs
     /// Roundtable Hold's emblem, which is not drawn where its entry is. This aims just east of it.
     static readonly Vector3 IconOffset = new(-1366, 0, -768);
     const int WarpRowBase = 99_000_000; // a hub's travel row is this plus the room's own row id
+    const int RoundtablePlaceName = 11100; // "Roundtable Hold" in PlaceName, the area's name
     const int IconRowBase = 98_000_000; // and its map entry, shown only while it is the default hub
     /// One flag per room, on for the default hub: free flags taken downward from here. The map
     /// marks take theirs upward from 78000, 77000 and 76000, so the two meet only if either grows a lot.
@@ -136,7 +137,7 @@ static class Hubs
         commonTalk ??= BND4.Read(Program.In("script", "talk", Common + ".talkesdbnd.dcx"));
         HubPicker.AddTo(commonTalk, rooms);
         commonTalk.Write(OutFile(outDir, "script", "talk", Common + ".talkesdbnd.dcx"));
-        int holdText = warp[RoundtableWarpRow].Get<int>("textId1");
+        int holdText = RoundtablePlaceName;
         foreach (string lang in Directory.GetDirectories(Path.Combine(Program.GameDir, "msg")).Select(Path.GetFileName).Where(l => File.Exists(Program.In("msg", l, "item_dlc02.msgbnd.dcx")) && File.Exists(Program.In("msg", l, "menu_dlc02.msgbnd.dcx"))))
         {
             var lines = HubPicker.Texts(new Text(Program.In("msg", lang, "item_dlc02.msgbnd.dcx")), holdText, rooms);
@@ -373,14 +374,17 @@ static class Hubs
         row.Set("selectMinZoomStep", (byte)255);
         warp.Rows.Add(row);
 
-        // The map entry: the same room again, drawn beside Roundtable Hold but in no list (no
-        // section), and only there while this room is the default hub (HubPicker sets the flag).
+        // The map entry: the same room again, drawn beside Roundtable Hold,
+        // and only there while this room is the default hub (HubPicker sets the flag).
         uint chosen = freeFlags.Dequeue();
         int iconId = IconRowBase + roomRow.ID;
         if (warp[iconId] != null) throw new Exception($"BonfireWarpParam row {iconId} already exists");
         var icon = new PARAM.Row(row) { ID = iconId, Name = "" };
         icon.Set("eventflagId", chosen);
-        icon.Set("bonfireSubCategoryId", -1);
+        // In Roundtable Hold's section like the list entry, and first below the Table of Lost Grace: an
+        // entry in no section is not drawn on the map at all (seen in game). So the default hub is
+        // listed twice, once at the top with its icon.
+        icon.Set("bonfireSubCategorySortId", (ushort)(holdRow.Get<ushort>("bonfireSubCategorySortId") + 1));
         icon.Set("dispMinZoomStep", (byte)0);
         icon.Set("selectMinZoomStep", (byte)0);
         warp.Rows.Add(icon);
