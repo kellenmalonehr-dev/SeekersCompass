@@ -52,8 +52,11 @@ static class Hubs
 
     /// Where a hub's travel entry is drawn, in metres from Roundtable Hold's own (east, up, north).
     /// Seen in game: an entry 150 m east of Roundtable's drew about 2060 m east and 770 m north of
-    /// Roundtable Hold's emblem, which is not drawn where its entry is. This aims just east of it.
-    static readonly Vector3 IconOffset = new(-1366, 0, -768);
+    /// Roundtable Hold's emblem, which is not drawn where its entry is. (-1366, -768) put it just east
+    /// of the emblem; the user then asked for it closer in and a little lower, at a spot they marked
+    /// with the map cursor: about 122 m further west and 84 m further south (screenshot of 2026-11-14,
+    /// where the 544 m between emblem and icon measured 129 px).
+    static readonly Vector3 IconOffset = new(-1488, 0, -852);
     const int WarpRowBase = 99_000_000; // a hub's travel row is this plus the room's own row id
     const int RoundtablePlaceName = 11100; // "Roundtable Hold" in PlaceName, the area's name
     const int IconRowBase = 98_000_000; // and its map entry, shown only while it is the default hub
