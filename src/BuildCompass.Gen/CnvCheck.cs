@@ -149,3 +149,19 @@ static class ParamRow
         }
     }
 }
+
+static class MapPeople
+{
+    /// `people <map>`: the map's characters with their names, talk scripts, entities and places.
+    public static void Run(string[] args)
+    {
+        var gd = GameData.Load(Program.In("regulation.bin"));
+        var text = new Text(Program.In("msg", "engus", "item_dlc02.msgbnd.dcx"));
+        var npc = gd["NpcParam"];
+        foreach (var e in MSBE.Read(Program.In("map", "mapstudio", args[0] + ".msb.dcx")).Parts.Enemies.OrderBy(e => e.Name))
+        {
+            string name = npc[e.NPCParamID] is { } row ? text.Get("NpcName", row.Get<int>("nameId")) : null;
+            Console.WriteLine($"{e.Name,-12} {name ?? "-",-28} npc {e.NPCParamID,-10} talk {e.TalkID,-10} entity {e.EntityID,-9} at {e.Position.X:0.0} {e.Position.Y:0.0} {e.Position.Z:0.0} facing {e.Rotation.Y:0} on {e.CollisionPartName}");
+        }
+    }
+}

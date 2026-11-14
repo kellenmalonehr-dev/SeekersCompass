@@ -8,3 +8,6 @@
 hewg 158.800 110.547 -222.400 1.571
 # The Husks: to his right as you face him, clear of the candelabra. Their books reach back 1.8 m.
 husks 158.500 110.547 -228.400 1.571
+# Roderika: on the same landing, to Hewg's left as you face him, beyond the candelabra (a guess:
+# nobody has stood there). Enia is placed automatically, across the grace from the landing spot.
+roderika 158.600 110.547 -216.400 1.571

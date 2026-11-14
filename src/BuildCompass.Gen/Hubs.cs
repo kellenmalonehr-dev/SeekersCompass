@@ -31,7 +31,13 @@ static class Hubs
         Props: new[] { "AEG221_610_4500", "AEG227_008_4502", "AEG099_303_9000", "AEG099_304_9000", "AEG099_090_9001" },
         Sfx: ("AEG099_090_9001", 100, 803450));
 
-    static readonly Group[] Residents = { Hewg, Husks };
+    // Roderika as the spirit tuner, with the stand beside her; she and Enia stand on their rooms' floors.
+    static readonly Group Roderika = new("roderika", "c0000_9011", -21.56f, Props: new[] { "AEG221_498_4500" });
+    // Finger Reader Enia on her seat.
+    static readonly Group Enia = new("enia", "c2170_9000", -20.10f, Props: new[] { "AEG221_605_4500" });
+
+    /// In placing order: the first two stand nearest the middle of the arc, the next two outside them.
+    static readonly Group[] Residents = { Hewg, Husks, Roderika, Enia };
 
     /// A boss room used as a hub (a line of data/hubs.txt). Nth is its number among the hubs of
     /// its map, which keeps the ids it adds apart from the others'.
@@ -191,7 +197,9 @@ static class Hubs
     /// that spot clear.
     static Dictionary<string, Spot> AutoSpots(MSBE msb, MSBE.Part.Asset grace, Group[] groups, bool landingSide)
     {
-        float Distance = 5, Spread = landingSide ? 130 : 70;
+        // Pairs fan out from the middle: the first two at half the spread either side (the spots of
+        // Hewg and the Husks before anyone else was added), each further pair 50 degrees outside the last.
+        float Spread = landingSide ? 130 : 70;
         var landing = msb.Parts.Players.FirstOrDefault(p => p.EntityID == grace.EntityID - 970);
         var away = landing != null ? new Vector2(grace.Position.X - landing.Position.X, grace.Position.Z - landing.Position.Z) : Vector2.Zero;
         away = away.Length() > 0.5f ? Vector2.Normalize(away) : new Vector2(1, 0);
@@ -201,7 +209,8 @@ static class Hubs
         var spots = new Dictionary<string, Spot>();
         for (int i = 0; i < groups.Length; i++)
         {
-            float a = (groups.Length == 1 ? 0 : -Spread / 2 + Spread * i / (groups.Length - 1)) * MathF.PI / 180;
+            float a = (i % 2 == 0 ? -1 : 1) * (Spread / 2 + 50 * (i / 2)) * MathF.PI / 180;
+            float Distance = i < 2 ? 5 : 5.5f;
             var d = new Vector2(away.X * MathF.Cos(a) - away.Y * MathF.Sin(a), away.X * MathF.Sin(a) + away.Y * MathF.Cos(a));
             // A part with facing f looks along (-sin f, -cos f); here it looks back at the grace, along -d.
             spots[groups[i].Key] = new Spot(new Vector3(grace.Position.X + d.X * Distance, y, grace.Position.Z + d.Y * Distance), MathF.Atan2(d.X, d.Y) * 180 / MathF.PI);
@@ -212,7 +221,10 @@ static class Hubs
     static void BuildHub(Hub hub, int order, MSBE msb, BND4 talk, HashSet<string> addedTalk, EMEVD emevd, MSBE source, BND4 holdTalk, Emedf emedf, PARAM warp)
     {
         var grace = msb.Parts.Assets.FirstOrDefault(a => a.EntityID == hub.GraceEntity) ?? throw new Exception($"{hub.Map}: no grace with entity {hub.GraceEntity}");
-        var spots = hub.SpotFile != null ? Spot.Read(DataFile(hub.SpotFile)) : AutoSpots(msb, grace, Residents, hub.LandingSide);
+        // A spot file may name only some residents; the others are placed automatically.
+        var spots = AutoSpots(msb, grace, Residents, hub.LandingSide);
+        var fromFile = hub.SpotFile != null ? Spot.Read(DataFile(hub.SpotFile)) : new();
+        foreach (var kv in fromFile) spots[kv.Key] = kv.Value;
         var taken = msb.Parts.GetEntries().Select(p => p.EntityID).Where(id => id != 0).ToHashSet();
         var names = msb.Parts.GetEntries().Select(p => p.Name).ToHashSet();
         int nextName = 9790;
@@ -244,7 +256,7 @@ static class Hubs
             // A talk dummy close by if there is one (every grace has one); else whoever stands nearest, often the boss.
             var dummies = onFloor.Where(e => e.ModelName == TalkDummyModel && Vector3.Distance(e.Position, spot.Position) < 15).ToList();
             var localCharacter = (dummies.Count > 0 ? dummies : onFloor).OrderBy(e => Vector3.Distance(e.Position, spot.Position)).First();
-            Console.WriteLine($"{hub.Map} {hub.GraceEntity} {g.Key}: {(hub.SpotFile != null ? "spot file" : "auto")}, floor {spot.Position} facing {spot.Facing:0.#}, {props.Count} props; like prop {localProp.Name} ({Vector3.Distance(localProp.Position, spot.Position):0.0} m) and {localCharacter.Name} on {localCharacter.CollisionPartName} ({Vector3.Distance(localCharacter.Position, spot.Position):0.0} m); prop floor \"{localProp.UnkPartNames[3]}\"");
+            Console.WriteLine($"{hub.Map} {hub.GraceEntity} {g.Key}: {(fromFile.ContainsKey(g.Key) ? "spot file" : "auto")}, floor {spot.Position} facing {spot.Facing:0.#}, {props.Count} props; like prop {localProp.Name} ({Vector3.Distance(localProp.Position, spot.Position):0.0} m) and {localCharacter.Name} on {localCharacter.CollisionPartName} ({Vector3.Distance(localCharacter.Position, spot.Position):0.0} m); prop floor \"{localProp.UnkPartNames[3]}\"");
 
             character.Name = NewName(character.ModelName);
             character.InstanceID = Instance(character.Name);
@@ -257,7 +269,13 @@ static class Hubs
             msb.Parts.Enemies.Add(character);
             characters.Add(character.EntityID);
             if (!msb.Models.Enemies.Any(m => m.Name == character.ModelName))
-                msb.Models.Enemies.Add(new MSBE.Model.Enemy { Name = character.ModelName, SibPath = source.Models.Enemies.First(m => m.Name == character.ModelName).SibPath });
+            {
+                // Its entry in Roundtable Hold's model list, or (human characters have none there) one written
+                // the way this map writes its others.
+                var known = source.Models.Enemies.FirstOrDefault(m => m.Name == character.ModelName);
+                var like = msb.Models.Enemies.First();
+                msb.Models.Enemies.Add(new MSBE.Model.Enemy { Name = character.ModelName, SibPath = known?.SibPath ?? like.SibPath.Replace(like.Name, character.ModelName) });
+            }
 
             for (int i = 0; i < props.Count; i++)
             {
