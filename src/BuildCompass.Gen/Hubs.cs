@@ -55,6 +55,13 @@ static class Hubs
     /// Roundtable Hold's emblem, which is not drawn where its entry is. This aims just east of it.
     static readonly Vector3 IconOffset = new(-1366, 0, -768);
     const int WarpRowBase = 99_000_000; // a hub's travel row is this plus the room's own row id
+    const int IconRowBase = 98_000_000; // and its map entry, shown only while it is the default hub
+    /// One flag per room, on for the default hub: free flags taken downward from here. The map
+    /// marks take theirs upward from 78000, 77000 and 76000, so the two meet only if either grows a lot.
+    const uint DefaultFlagTop = 76999;
+    static Queue<uint> freeFlags = new();
+    static readonly List<HubPicker.Room> rooms = new();
+    static HashSet<uint> usedFlags = new();
 
     static List<Hub> ReadHubs()
     {
@@ -99,6 +106,9 @@ static class Hubs
         var warp = gd["BonfireWarpParam"];
 
         var hubs = ReadHubs();
+        rooms.Clear();
+        usedFlags = FlagScan.UsedFlags(gd);
+        freeFlags = new Queue<uint>(Enumerable.Range(0, 900).Select(i => DefaultFlagTop - (uint)i).Where(fl => !usedFlags.Contains(fl)));
         int order = 0, skipped = 0;
         // A map with no characters to talk to has no talk file of its own. Its residents' scripts go
         // into the common talk file instead (m00_00_00_00, where the grace menu lives), which is
@@ -122,7 +132,17 @@ static class Hubs
             if (own) talk.Write(OutFile(outDir, "script", "talk", map + ".talkesdbnd.dcx"));
             emevd.Write(OutFile(outDir, "event", map + ".emevd.dcx"));
         }
-        commonTalk?.Write(OutFile(outDir, "script", "talk", Common + ".talkesdbnd.dcx"));
+        // The hub list in the grace menu, with its lines in every language (the rooms' own place names).
+        commonTalk ??= BND4.Read(Program.In("script", "talk", Common + ".talkesdbnd.dcx"));
+        HubPicker.AddTo(commonTalk, rooms);
+        commonTalk.Write(OutFile(outDir, "script", "talk", Common + ".talkesdbnd.dcx"));
+        int holdText = warp[RoundtableWarpRow].Get<int>("textId1");
+        foreach (string lang in Directory.GetDirectories(Path.Combine(Program.GameDir, "msg")).Select(Path.GetFileName).Where(l => File.Exists(Program.In("msg", l, "item_dlc02.msgbnd.dcx")) && File.Exists(Program.In("msg", l, "menu_dlc02.msgbnd.dcx"))))
+        {
+            var lines = HubPicker.Texts(new Text(Program.In("msg", lang, "item_dlc02.msgbnd.dcx")), holdText, rooms);
+            foreach (string bnd in GraceLoadouts.Gen.Builder.MenuBnds)
+                GraceLoadouts.Gen.Builder.PatchFmgs(Program.In("msg", lang, bnd), OutFile(outDir, "msg", lang, bnd), fmg => fmg == "EventTextForTalk" ? lines : null);
+        }
 
 
         warp.Rows = warp.Rows.OrderBy(r => r.ID).ToList();
@@ -348,13 +368,24 @@ static class Hubs
         row.Set("posY", holdRow.Get<float>("posY") + IconOffset.Y);
         row.Set("posZ", holdRow.Get<float>("posZ") + IconOffset.Z);
         row.Set("bonfireSubCategorySortId", (ushort)(holdRow.Get<ushort>("bonfireSubCategorySortId") + 10 + order));
-        if (!hub.Icon)
-        {
-            row.Set("dispMinZoomStep", (byte)255);
-            row.Set("selectMinZoomStep", (byte)255);
-        }
+        // The list entry is never drawn on the map: it asks for a zoom step the map never reaches.
+        row.Set("dispMinZoomStep", (byte)255);
+        row.Set("selectMinZoomStep", (byte)255);
         warp.Rows.Add(row);
-        Console.WriteLine($"{hub.Map} {hub.GraceEntity}: {characters.Count} characters, {hidden.Count} props, events {hideId} and {effectId}, travel row {rowId} to grace {roomRow.ID}{(hub.Icon ? " with a map icon" : "")}, residents shown by flag {hub.BossDeadFlag}");
+
+        // The map entry: the same room again, drawn beside Roundtable Hold but in no list (no
+        // section), and only there while this room is the default hub (HubPicker sets the flag).
+        uint chosen = freeFlags.Dequeue();
+        int iconId = IconRowBase + roomRow.ID;
+        if (warp[iconId] != null) throw new Exception($"BonfireWarpParam row {iconId} already exists");
+        var icon = new PARAM.Row(row) { ID = iconId, Name = "" };
+        icon.Set("eventflagId", chosen);
+        icon.Set("bonfireSubCategoryId", -1);
+        icon.Set("dispMinZoomStep", (byte)0);
+        icon.Set("selectMinZoomStep", (byte)0);
+        warp.Rows.Add(icon);
+        rooms.Add(new HubPicker.Room(order, roomRow.Get<uint>("eventflagId"), chosen, roomRow.Get<int>("textId1")));
+        Console.WriteLine($"{hub.Map} {hub.GraceEntity}: {characters.Count} characters, {hidden.Count} props, events {hideId} and {effectId}, travel row {rowId} to grace {roomRow.ID}, map entry {iconId} while flag {chosen} is on, residents shown by flag {hub.BossDeadFlag}");
     }
 
     /// A place on the floor and a facing in degrees. A spot file has lines of "name x y z yaw" with
