@@ -11,8 +11,10 @@ static class TalkDump
         args = args.Where(a => a != "--mod").ToArray();
         int bi = Array.IndexOf(args, "--base"); string baseArg = bi >= 0 ? args[bi + 1] : null;
         if (bi >= 0) args = args.Where((a, i) => i != bi && i != bi + 1).ToArray();
+        int fi = Array.IndexOf(args, "--file"); string map = fi >= 0 ? args[fi + 1] : "m00_00_00_00";
+        if (fi >= 0) args = args.Where((a, i) => i != fi && i != fi + 1).ToArray();
         string baseDir = baseArg ?? (fromMod ? Path.Combine(Program.Root, "mod") : Program.GameDir);
-        var bnd = BND4.Read(Path.Combine(baseDir, "script", "talk", "m00_00_00_00.talkesdbnd.dcx"));
+        var bnd = BND4.Read(Path.Combine(baseDir, "script", "talk", map + ".talkesdbnd.dcx"));
         if (args.Length == 0)
         {
             foreach (var f in bnd.Files) Console.WriteLine($"{f.ID} {f.Name} {f.Bytes.Length}B");

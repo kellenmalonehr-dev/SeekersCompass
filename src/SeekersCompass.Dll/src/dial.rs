@@ -23,7 +23,7 @@ const ROW: i32 = 7280;
 /// Frames between checks of the ini, the row and the effect.
 const CHECK_EVERY: u32 = 60;
 /// Frames to wait after the player appears, so nothing is applied mid-load.
-const SETTLE: u32 = 120;
+const SETTLE: u32 = 30;
 
 /// SpEffect state types of the rows that deal poison and rot ticks.
 const POISON: u16 = 2;
@@ -185,7 +185,8 @@ impl State {
         }
         self.last_hp = Some(hp);
 
-        if self.frames_in_world % CHECK_EVERY != 0 {
+        // At once when the wait ends, then at every check.
+        if self.frames_in_world != SETTLE && self.frames_in_world % CHECK_EVERY != 0 {
             return;
         }
         let settings = read_settings();

@@ -94,3 +94,29 @@ static class TalkGrep
                             Console.WriteLine($"{(path.StartsWith(Program.GameDir) ? "vanilla" : "base")} {Path.GetFileName(path)} {Path.GetFileName(f.Name)} g{g} s{sid}: c{c.CommandBank}_{c.CommandID}({string.Join(", ", c.Arguments.Select(EzState.Disasm))})");
     }
 }
+
+static class TalkCmd
+{
+    /// `talkcmd <bank> <id> [max]`: where talk scripts use a command, with its arguments.
+    /// `talkcmd` alone: every command in use, with how often.
+    public static void Run(string[] args)
+    {
+        var counts = new Dictionary<(int, int), int>();
+        int shown = 0, max = args.Length > 2 ? int.Parse(args[2]) : 12;
+        foreach (var path in Program.InFiles("*.talkesdbnd.dcx", "script", "talk"))
+            foreach (var f in BND4.Read(path).Files.Where(f => f.Name.EndsWith(".esd")))
+                foreach (var (g, states) in ESD.Read(f.Bytes).StateGroups)
+                    foreach (var (sid, s) in states)
+                        foreach (var c in s.EntryCommands.Concat(s.ExitCommands).Concat(s.WhileCommands).Concat(s.Conditions.SelectMany(All)))
+                        {
+                            counts[(c.CommandBank, c.CommandID)] = counts.GetValueOrDefault((c.CommandBank, c.CommandID)) + 1;
+                            if (args.Length >= 2 && c.CommandBank == int.Parse(args[0]) && c.CommandID == int.Parse(args[1]) && shown++ < max)
+                                Console.WriteLine($"{Path.GetFileName(path).Split('.')[0]} {Path.GetFileName(f.Name)} g{g} s{sid}: ({string.Join(", ", c.Arguments.Select(EzState.Disasm))})");
+                        }
+        if (args.Length < 2)
+            foreach (var kv in counts.Where(kv => kv.Key.Item1 != 6).OrderBy(kv => kv.Key)) Console.WriteLine($"c{kv.Key.Item1}_{kv.Key.Item2}: {kv.Value}");
+        else Console.WriteLine($"{counts.GetValueOrDefault((int.Parse(args[0]), int.Parse(args[1])))} uses");
+    }
+
+    static IEnumerable<ESD.CommandCall> All(ESD.Condition c) => c.PassCommands.Concat(c.Subconditions.SelectMany(All));
+}

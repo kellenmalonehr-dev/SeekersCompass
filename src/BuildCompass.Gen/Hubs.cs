@@ -74,7 +74,8 @@ static class Hubs
         // that already has its residents must not get them twice.
         var hubMaps = ReadHubs().Select(h => h.Map).Append(Roundtable).ToHashSet();
         if (Directory.Exists(Path.Combine(outDir, "map"))) Directory.Delete(Path.Combine(outDir, "map"), true);
-        foreach (var sub in new[] { Path.Combine("script", "talk"), "event" })
+        // (As a part of the main build the talk files stay: the bell bearing step has just written them.)
+        foreach (var sub in ai >= 0 ? new[] { "event" } : new[] { Path.Combine("script", "talk"), "event" })
             if (Directory.Exists(Path.Combine(outDir, sub)))
                 foreach (var f in Directory.GetFiles(Path.Combine(outDir, sub)).Where(f => hubMaps.Contains(Path.GetFileName(f).Split('.')[0])))
                     File.Delete(f);

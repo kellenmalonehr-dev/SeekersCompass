@@ -184,7 +184,7 @@ static class Builder
         // --- grace menu (talk script)
         GraceMenu.Build(mod, statFlag, kindFlag, collectedFlag, vis, marks);
 
-        // --- merchants give their bell bearing on a first visit (common event script). Not on top of
+        // --- sellers give their bell bearing when their shop is first opened (talk scripts). Not on top of
         // another overhaul: Convergence has this feature itself.
         string commonEvent = Path.Combine(mod, "event", "common.emevd.dcx");
         if (File.Exists(commonEvent)) File.Delete(commonEvent);

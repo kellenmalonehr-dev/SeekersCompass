@@ -11,7 +11,7 @@
 //! record it as confirmed in game on 2.7.2.0. Which row is an enemy drop comes from this mod's own
 //! log in play.
 
-use std::sync::atomic::{AtomicU8, AtomicU32, AtomicUsize, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicU8, AtomicU32, AtomicUsize, Ordering};
 
 use eldenring::cs::{CSTaskGroupIndex, CSTaskImp, GameSystemCommonParam, SoloParamRepository};
 use fromsoftware_shared::FromStatic;
@@ -100,6 +100,8 @@ const RELOCATE_LEN: usize = 0x10;
 
 /// Kinds answered yes, as a mask of `Kind::bit`. Zero until the settings are read.
 static ENABLED: AtomicU8 = AtomicU8::new(0);
+/// Set while the player is in combat and PauseInCombat is on: the hook then answers nothing.
+static PAUSED: AtomicBool = AtomicBool::new(false);
 /// Where the copied start of the real function lives; the trampoline jumps there.
 static RELOCATED: AtomicUsize = AtomicUsize::new(0);
 /// Row ids the hook has seen, for the log: the id, with the top bit set when it answered yes.
@@ -158,7 +160,7 @@ seekers_compass_pickup_trampoline:
 /// Called by the trampoline with the real function's first two arguments. Nothing in here can
 /// panic, allocate or block.
 extern "C" fn filter(_this: *mut u8, id: u32) -> i32 {
-    let yes = classify(id).is_some_and(|k| ENABLED.load(Ordering::Relaxed) & k.bit() != 0);
+    let yes = !PAUSED.load(Ordering::Relaxed) && classify(id).is_some_and(|k| ENABLED.load(Ordering::Relaxed) & k.bit() != 0);
     let entry = (id & !ANSWERED) | if yes { ANSWERED } else { 0 };
     for slot in &SEEN {
         match slot.load(Ordering::Relaxed) {
@@ -215,6 +217,8 @@ struct State {
     animations: Option<(i32, i32)>,
     /// Whether the animation is currently switched off.
     no_animation: Option<bool>,
+    /// PauseInCombat from the ini.
+    pause_in_combat: bool,
     /// How many `SEEN` slots have been logged.
     logged: usize,
 }
@@ -222,6 +226,8 @@ struct State {
 impl State {
     fn tick(&mut self) {
         self.frames = self.frames.wrapping_add(1);
+        // Every frame, so pick-ups stop the moment a fight starts.
+        PAUSED.store(self.pause_in_combat && in_combat().unwrap_or(false), Ordering::Relaxed);
         if self.frames % 60 != 1 {
             return;
         }
@@ -236,6 +242,11 @@ impl State {
             log(&format!("picking up: {}", if on.is_empty() { "nothing".into() } else { on.join(", ") }));
             self.mask = Some(mask);
             ENABLED.store(mask, Ordering::Relaxed);
+        }
+        let pause = ini.iter().find(|(name, _)| name == "pauseincombat").is_some_and(|(_, v)| v != "0");
+        if pause != self.pause_in_combat {
+            self.pause_in_combat = pause;
+            log(if pause { "pausing while in combat" } else { "picking up in combat too" });
         }
         let skip = ini.iter().find(|(name, _)| name == "animation").is_some_and(|(_, v)| v == "0");
         if self.no_animation != Some(skip) && self.set_animation(skip) {
@@ -276,4 +287,27 @@ impl State {
         row.set_msb_event_geom_treasure_info_item_get_anim_id_corpse(if skip { NO_ANIMATION } else { corpse });
         true
     }
+}
+
+/// The game's "player is in combat" flag, as ALR2310's notes locate it: the CSSound singleton
+/// points at +0x328 to a struct whose byte +4 is set in combat. None while it can't be read.
+#[repr(C)]
+#[fromsoftware_shared::singleton("CSSound")]
+struct CSSound {
+    unk0: [u8; 0x328],
+    combat: *const CombatState,
+}
+
+#[repr(C)]
+struct CombatState {
+    unk0: [u8; 4],
+    in_combat: u8,
+}
+
+fn in_combat() -> Option<bool> {
+    let sound = unsafe { CSSound::instance() }.ok()?;
+    if (sound.combat as usize) < 0x10000 {
+        return None;
+    }
+    Some(unsafe { (*sound.combat).in_combat } != 0)
 }
