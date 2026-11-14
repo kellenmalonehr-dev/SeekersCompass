@@ -131,3 +131,21 @@ static class PartPos
             Console.WriteLine($"{p.Name} entity {p.EntityID} at {p.Position.X:0.00} {p.Position.Y:0.00} {p.Position.Z:0.00} facing {p.Rotation.Y:0.#}");
     }
 }
+
+static class ParamRow
+{
+    /// `paramrow <param> <id> [id...] [--mod <folder>]`: the fields of rows, side by side where they differ from the first.
+    public static void Run(string[] args)
+    {
+        int mi = Array.IndexOf(args, "--mod");
+        string reg = mi >= 0 ? Path.Combine(args[mi + 1], "regulation.bin") : Program.In("regulation.bin");
+        if (mi >= 0) args = args.Where((a, i) => i != mi && i != mi + 1).ToArray();
+        var p = GameData.Load(reg)[args[0]];
+        var rows = args.Skip(1).Select(a => p[int.Parse(a)]).ToList();
+        foreach (var cell in rows[0].Cells)
+        {
+            var values = rows.Select(r => r == null ? "(no row)" : Convert.ToString(r[cell.Def.InternalName].Value)).ToList();
+            if (rows.Count == 1 || values.Distinct().Count() > 1) Console.WriteLine($"{cell.Def.InternalName,-28} {string.Join("  |  ", values)}");
+        }
+    }
+}

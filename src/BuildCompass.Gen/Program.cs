@@ -98,6 +98,7 @@ static class Program
             case "talkgrep": TalkGrep.Run(args.Skip(1).ToArray()); return 0;
             case "talkcmd": TalkCmd.Run(args.Skip(1).ToArray()); return 0;
             case "partpos": PartPos.Run(args.Skip(1).ToArray()); return 0;
+            case "paramrow": ParamRow.Run(args.Skip(1).ToArray()); return 0;
             case "fmgexact": FmgExact.Run(args.Skip(1).ToArray()); return 0;
             case "textcheck": TextCheck.Run(args.Skip(1).ToArray()); return 0;
             case "tpf": Tpf.List(args.Skip(1).ToArray()); return 0;

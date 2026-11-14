@@ -322,7 +322,10 @@ static class Hubs
         int rowId = WarpRowBase + roomRow.ID;
         if (warp[rowId] != null) throw new Exception($"BonfireWarpParam row {rowId} already exists");
         var row = new PARAM.Row(roomRow) { ID = rowId, Name = "" };
-        foreach (string f in new[] { "areaNo", "gridXNo", "gridZNo", "bonfireSubCategoryId" }) row[f].Value = holdRow[f].Value;
+        // Also which map the entry belongs to (overworld, underground, Realm of Shadow: dispMask00,
+        // dispMask01 and the bit the definitions call pad1). An entry kept on the Realm of Shadow map
+        // is in no list at all, because Roundtable Hold's section only exists on the main map.
+        foreach (string f in new[] { "areaNo", "gridXNo", "gridZNo", "bonfireSubCategoryId", "dispMask00", "dispMask01", "pad1" }) row[f].Value = holdRow[f].Value;
         row.Set("posX", holdRow.Get<float>("posX") + IconOffset.X);
         row.Set("posY", holdRow.Get<float>("posY") + IconOffset.Y);
         row.Set("posZ", holdRow.Get<float>("posZ") + IconOffset.Z);
