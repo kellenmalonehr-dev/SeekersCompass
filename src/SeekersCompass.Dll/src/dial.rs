@@ -3,8 +3,10 @@
 //!
 //! Nothing on disk changes. In memory, this borrows SpEffectParam row 7280, an unused area-scaling
 //! row, makes it neutral, sets its damage cut rates (which multiply calculated damage on the
-//! defender's side) and its attack rates (which multiply the damage of the holder's own hits), and
-//! keeps that effect on the local player.
+//! defender's side) and its damage-to-enemies rates (which multiply the holder's hits on enemies
+//! but not on other players), and keeps that effect on the local player. Row 7260 carries the
+//! damage dealt alone and is kept on the player's spirit summons. The bleed and frostbite bursts
+//! are a share of the target's HP, so for those the rows the player's attacks apply are scaled.
 //!
 //! Bleed and frostbite use the same row's damage rates, which also leave buildup alone. Poison and
 //! rot have no such rate, so their tick damage is scaled directly on the rows enemies use. Those
@@ -30,6 +32,11 @@ const SETTLE: u32 = 30;
 /// SpEffect state types of the rows that deal poison and rot ticks.
 const POISON: u16 = 2;
 const ROT: u16 = 5;
+/// And of the rows that deal the bleed and frostbite bursts.
+const BLEED: u16 = 6;
+const FROST: u16 = 260;
+/// A second unused row of the same kind as 7280, kept on the player's spirit summons.
+const SUMMON_ROW: i32 = 7260;
 
 /// Rows that deal poison or rot ticks to the player: enemy attacks, Malenia, and swamps.
 fn enemy_tick_rows() -> impl Iterator<Item = u32> {
@@ -37,6 +44,13 @@ fn enemy_tick_rows() -> impl Iterator<Item = u32> {
         .chain(21000..=21999)
         .chain(18430..=18433)
         .chain([4002, 4004, 4051, 4053, 4055, 20020100])
+}
+
+/// Rows that deal the bleed or frostbite burst when the player's attacks fill the bar: weapons and
+/// greases (6400s, 6700s), weapons by upgrade level (105000s, 107500s), and spells, skills and
+/// thrown items (below 4000). Enemies' attacks use 22000s, 24000s and rows in the millions.
+fn player_proc_rows() -> impl Iterator<Item = u32> {
+    (0..4000).chain(6400..=6415).chain(6700..=6705).chain(105000..=105999).chain(107500..=107999)
 }
 
 fn log(text: &str) {
@@ -84,6 +98,9 @@ struct State {
     tick_base: HashMap<u32, (f32, i32)>,
     /// The DamageTaken poison and rot ticks were last scaled to.
     ticks_percent: Option<u32>,
+    proc_base: HashMap<u32, (f32, i32)>,
+    /// The DamageDealt the player's bleed and frostbite rows were last scaled to.
+    procs_percent: Option<u32>,
 }
 
 /// Row 7280 is written for enemies, with 5.8 times the HP among other things. Everything that
@@ -129,23 +146,25 @@ fn set_cut(row: &mut SP_EFFECT_PARAM_ST, rate: f32) {
     row.set_freeze_damage_rate(status);
 }
 
-/// The attack rates multiply the damage of each hit by the one holding the effect, per damage type.
-/// Buildup, stance damage and the HP-percent damage of bleed and frostbite are left alone.
+/// These rates multiply the damage the holder's hits do to enemies, per damage type, and leave
+/// hits on other players alone (those have their own fields, which stay at 1). The game's own
+/// effects use them the same way (172 rows). The last one scales stance damage.
 fn set_dealt(row: &mut SP_EFFECT_PARAM_ST, rate: f32) {
-    row.set_physics_attack_rate(rate);
-    row.set_magic_attack_rate(rate);
-    row.set_fire_attack_rate(rate);
-    row.set_thunder_attack_rate(rate);
-    row.set_dark_attack_rate(rate);
+    row.set_atk_enemy_dmg_correct_rate_physics(rate);
+    row.set_atk_enemy_dmg_correct_rate_magic(rate);
+    row.set_atk_enemy_dmg_correct_rate_fire(rate);
+    row.set_atk_enemy_dmg_correct_rate_thunder(rate);
+    row.set_atk_enemy_dmg_correct_rate_dark(rate);
+    row.set_sa_attack_power_rate(rate);
 }
 
-/// Scales poison and rot ticks from their original values, which are kept in `base`.
-fn scale_enemy_ticks(rate: f32, base: &mut HashMap<u32, (f32, i32)>) -> Result<usize, String> {
+/// Scales the HP loss of status rows from their original values, which are kept in `base`.
+fn scale_rows(ids: impl Iterator<Item = u32>, states: &[u16], rate: f32, base: &mut HashMap<u32, (f32, i32)>) -> Result<usize, String> {
     let params = unsafe { SoloParamRepository::instance_mut() }.map_err(|e| format!("params not ready: {e:?}"))?;
     let mut count = 0;
-    for id in enemy_tick_rows() {
+    for id in ids {
         let Some(row) = params.get_mut::<SpEffectParam>(id) else { continue };
-        if !matches!(row.state_info(), POISON | ROT) {
+        if !states.contains(&row.state_info()) {
             continue;
         }
         let (hp_rate, hp_point) = *base.entry(id).or_insert((row.change_hp_rate(), row.change_hp_point()));
@@ -163,18 +182,27 @@ fn scale_enemy_ticks(rate: f32, base: &mut HashMap<u32, (f32, i32)>) -> Result<u
 /// another mod is then using it and it must be left alone.
 fn prepare_row(taken: f32, dealt: f32) -> Result<(), String> {
     let params = unsafe { SoloParamRepository::instance_mut() }.map_err(|e| format!("params not ready: {e:?}"))?;
-    let row = params.get_mut::<SpEffectParam>(ROW as u32).ok_or("row 7280 doesn't exist")?;
+    let row = claim(params.get_mut::<SpEffectParam>(ROW as u32), ROW)?;
+    set_cut(row, taken);
+    set_dealt(row, dealt);
+    // The summons' row carries only the damage dealt, so they take damage as they always do.
+    let row = claim(params.get_mut::<SpEffectParam>(SUMMON_ROW as u32), SUMMON_ROW)?;
+    set_dealt(row, dealt);
+    Ok(())
+}
+
+/// Both borrowed rows are area-scaling rows for enemies (HP rate 5.7 to 5.8, attack rate 2.7).
+fn claim(row: Option<&mut SP_EFFECT_PARAM_ST>, id: i32) -> Result<&mut SP_EFFECT_PARAM_ST, String> {
+    let row = row.ok_or(format!("row {id} doesn't exist"))?;
     let hp = row.max_hp_rate();
     let atk = row.physics_attack_power_rate();
     if (5.7..5.9).contains(&hp) && (2.7..2.8).contains(&atk) {
         neutralize(row);
-        log("row 7280 made neutral");
+        log(&format!("row {id} made neutral"));
     } else if hp != 1.0 || atk != 1.0 {
-        return Err(format!("row 7280 holds unexpected values (HP rate {hp}, attack rate {atk})"));
+        return Err(format!("row {id} holds unexpected values (HP rate {hp}, attack rate {atk})"));
     }
-    set_cut(row, taken);
-    set_dealt(row, dealt);
-    Ok(())
+    Ok(row)
 }
 
 impl State {
@@ -220,7 +248,7 @@ impl State {
         self.row_refused = false;
 
         if self.ticks_percent != Some(settings.damage_taken) {
-            match scale_enemy_ticks(settings.damage_taken as f32 / 100.0, &mut self.tick_base) {
+            match scale_rows(enemy_tick_rows(), &[POISON, ROT], settings.damage_taken as f32 / 100.0, &mut self.tick_base) {
                 Ok(count) => {
                     log(&format!("poison and rot ticks scaled on {count} rows"));
                     self.ticks_percent = Some(settings.damage_taken);
@@ -228,17 +256,37 @@ impl State {
                 Err(e) => log(&e),
             }
         }
+        if self.procs_percent != Some(settings.damage_dealt) {
+            match scale_rows(player_proc_rows(), &[BLEED, FROST], settings.damage_dealt as f32 / 100.0, &mut self.proc_base) {
+                Ok(count) => {
+                    log(&format!("bleed and frostbite damage of the player's attacks scaled on {count} rows"));
+                    self.procs_percent = Some(settings.damage_dealt);
+                }
+                Err(e) => log(&e),
+            }
+        }
 
         // Dying or travelling can clear the effect, so this runs again whenever it's missing.
         let on = player.chr_ins.special_effect.entries().any(|e| e.param_id == ROW);
-        if on && self.applied_sync == Some(settings.sync) {
-            return;
+        if !on || self.applied_sync != Some(settings.sync) {
+            if on {
+                player.remove_speffect(ROW);
+            }
+            player.apply_speffect(ROW, !settings.sync);
+            self.applied_sync = Some(settings.sync);
+            log(&format!("effect applied (Sync={})", settings.sync as u8));
         }
-        if on {
-            player.remove_speffect(ROW);
+
+        // Spirit summons get their own row, each time one appears.
+        let mut summons = 0;
+        for chr in world.summon_buddy_chr_set.characters() {
+            if !chr.special_effect.entries().any(|e| e.param_id == SUMMON_ROW) {
+                chr.apply_speffect(SUMMON_ROW, true);
+                summons += 1;
+            }
         }
-        player.apply_speffect(ROW, !settings.sync);
-        self.applied_sync = Some(settings.sync);
-        log(&format!("effect applied (Sync={})", settings.sync as u8));
+        if summons > 0 {
+            log(&format!("DamageDealt effect applied to {summons} summoned spirit(s)"));
+        }
     }
 }

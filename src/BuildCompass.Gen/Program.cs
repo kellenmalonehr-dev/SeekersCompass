@@ -92,6 +92,8 @@ static class Program
             case "armorbonus": ArmorBonus.Run(); return 0;
             case "namefind": NameFind.Run(args.Skip(1).ToArray()); return 0;
             case "solo": Solo.Run(args.Skip(1).ToArray()); return 0;
+            case "speffects": SpEffectScan.Run(args.Skip(1).ToArray()); return 0;
+            case "fielduse": FieldUse.Run(args.Skip(1).ToArray()); return 0;
             case "cnvcheck": CnvCheck.Run(args.Skip(1).ToArray()); return 0;
             case "cnvspells": CnvSpells.Run(args.Skip(1).ToArray()); return 0;
             case "findlot": FindLot.Run(args.Skip(1).ToArray()); return 0;
