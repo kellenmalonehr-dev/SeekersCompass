@@ -113,7 +113,7 @@ static class Hubs
         var holdEvents = EMEVD.Read(Program.In("event", Roundtable + ".emevd.dcx"));
         if (holdEvents.Events.Any(e => e.ID == HoldMerchantEvent)) throw new Exception($"event {HoldMerchantEvent} already exists in {Roundtable}");
         var sit = new EMEVD.Event(HoldMerchantEvent, EMEVD.Event.RestBehaviorType.Default);
-        foreach (int fx in MerchantSits) sit.Instructions.Add(emedf.Make(2004, 8, HusksEntity, fx));
+        sit.Instructions.Add(MerchantSit(HusksEntity));
         holdEvents.Events.Add(sit);
         holdEvents.Events.First(e => e.ID == 0).Instructions.Add(emedf.Make(2000, 0, 0, (uint)HoldMerchantEvent, 0));
         holdEvents.Write(OutFile(outDir, "event", Roundtable + ".emevd.dcx"));
@@ -253,8 +253,10 @@ static class Hubs
     const string MerchantMap = "m60_44_39_00", MerchantPart = "c3200_9000";
     const int MerchantNpc = 32001110, HusksNpc = 500020079, HusksMerchantNpc = 32009790;
     static MSBE.Part.Enemy merchantTemplate;
-    /// Common event 90005703 gives a merchant these while he is friendly; without them he stands.
-    static readonly int[] MerchantSits = { 9628, 9635, 9643 };
+    /// A merchant sits because his map's script (common event 90005726) forces this animation on him;
+    /// placed without it he stands. The instruction is that event's own, with the entity filled in.
+    const int MerchantSitAnimation = 930003;
+    static EMEVD.Instruction MerchantSit(uint entity) => new(2003, 18, BitConverter.GetBytes(entity).Concat(BitConverter.GetBytes(MerchantSitAnimation)).Concat(new byte[] { 0, 0, 0, 0 }).Concat(BitConverter.GetBytes(1f)).ToArray());
     const long HoldMerchantEvent = 11102790;
     const uint HusksEntity = 11100700;
 
@@ -422,14 +424,13 @@ static class Hubs
             new(1003, 2, new byte[] { 0, (byte)(dead ? 1 : 0), 0, 0 }.Concat(BitConverter.GetBytes(hub.BossDeadFlag)).ToArray());
         var hide = new EMEVD.Event(hideId, EMEVD.Event.RestBehaviorType.Default);
         foreach (uint c in characters) hide.Instructions.Add(emedf.Make(2004, 15, c, 1)); // Set Character Invincibility: on
-        // The merchant sits (and plays): the effects the game's own merchant event puts on a friendly merchant.
-        foreach (int fx in MerchantSits) hide.Instructions.Add(emedf.Make(2004, 8, husksEntity, fx)); // Set SpEffect
         hide.Instructions.Add(EndIfBoss(dead: true));
         foreach (uint c in characters) hide.Instructions.Add(emedf.Make(2004, 5, c, 0)); // Change Character Enable State: off
         foreach (uint a in hidden) hide.Instructions.Add(emedf.Make(2005, 3, a, 0)); // Change Asset Enable State: off
         var effect = new EMEVD.Event(effectId, EMEVD.Event.RestBehaviorType.Default);
         effect.Instructions.Add(EndIfBoss(dead: false));
         foreach (var (prop, dummyPoly, sfx) in effects) effect.Instructions.Add(emedf.Make(2006, 4, prop, dummyPoly, sfx)); // Create Asset-following SFX
+        effect.Instructions.Add(MerchantSit(husksEntity)); // Force Animation Playback: the merchant sits
         emevd.Events.Add(hide);
         emevd.Events.Add(effect);
         var init = emevd.Events.First(e => e.ID == 0).Instructions;
