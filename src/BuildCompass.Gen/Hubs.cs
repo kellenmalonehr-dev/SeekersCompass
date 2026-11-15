@@ -321,10 +321,14 @@ static class Hubs
 
     static void BuildHub(Hub hub, int order, MSBE msb, BND4 talk, HashSet<string> addedTalk, EMEVD emevd, MSBE source, BND4 holdTalk, Emedf emedf, PARAM warp)
     {
-        var grace = msb.Parts.Assets.FirstOrDefault(a => a.EntityID == hub.GraceEntity) ?? throw new Exception($"{hub.Map}: no grace with entity {hub.GraceEntity}");
-        // A spot file may name only some residents; the others are placed automatically.
-        var spots = AutoSpots(msb, grace, Residents, hub.LandingSide);
+        // A spot file may name only some residents; the others are placed automatically around the
+        // grace. In the open world the grace's object is in the large tile around this one, so
+        // there the spot file has to name everyone.
         var fromFile = hub.SpotFile != null ? Spot.Read(DataFile(hub.SpotFile)) : new();
+        var grace = msb.Parts.Assets.FirstOrDefault(a => a.EntityID == hub.GraceEntity);
+        if (grace == null && Residents.Any(g => !fromFile.ContainsKey(g.Key)))
+            throw new Exception($"{hub.Map}: no grace object with entity {hub.GraceEntity} in this map, so its spot file must place {string.Join(", ", Residents.Select(g => g.Key))}");
+        var spots = grace != null ? AutoSpots(msb, grace, Residents, hub.LandingSide) : new();
         foreach (var kv in fromFile) spots[kv.Key] = kv.Value;
         var taken = msb.Parts.GetEntries().Select(p => p.EntityID).Where(id => id != 0).ToHashSet();
         var names = msb.Parts.GetEntries().Select(p => p.Name).ToHashSet();
@@ -356,7 +360,9 @@ static class Hubs
             var fixedProps = msb.Parts.Assets.Where(a => a.EntityID == 0).ToList();
             var level = fixedProps.Where(a => MathF.Abs(a.Position.Y - spot.Position.Y) < 2).ToList();
             var localProp = (level.Count > 0 ? level : fixedProps).OrderBy(a => Vector3.Distance(a.Position, spot.Position)).First();
-            var onFloor = msb.Parts.Enemies.Where(e => !string.IsNullOrEmpty(e.CollisionPartName)).ToList();
+            // (Open-world characters name no floor piece, so there it is simply whoever stands nearest.)
+            bool openWorld = hub.Map.StartsWith("m60") || hub.Map.StartsWith("m61");
+            var onFloor = msb.Parts.Enemies.Where(e => openWorld || !string.IsNullOrEmpty(e.CollisionPartName)).ToList();
             // A talk dummy close by if there is one (every grace has one); else whoever stands nearest, often the boss.
             var dummies = onFloor.Where(e => e.ModelName == TalkDummyModel && Vector3.Distance(e.Position, spot.Position) < 15).ToList();
             var localCharacter = (dummies.Count > 0 ? dummies : onFloor).OrderBy(e => Vector3.Distance(e.Position, spot.Position)).First();

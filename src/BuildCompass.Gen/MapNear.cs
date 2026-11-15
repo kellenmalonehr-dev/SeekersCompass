@@ -7,6 +7,8 @@ static class MapNear
 {
     public static void Run(string[] args)
     {
+        int mi = Array.IndexOf(args, "--mod");
+        if (mi >= 0) { Program.Base = args[mi + 1]; args = args.Take(mi).ToArray(); }
         var msb = MSBE.Read(Program.In("map", "mapstudio", args[0] + ".msb.dcx"));
         float x = float.Parse(args[1]), z = float.Parse(args[2]), r = float.Parse(args[3]);
         float minY = args.Length > 4 ? float.Parse(args[4]) : float.MinValue, maxY = args.Length > 5 ? float.Parse(args[5]) : float.MaxValue;

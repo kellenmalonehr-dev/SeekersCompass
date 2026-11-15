@@ -34,3 +34,7 @@ m22_00_00_00 22001950 22000800    # Garden of Deep Purple (Putrescent Knight)
 m28_00_00_00 28001950 28000800    # Discussion Chamber (Midra)
 m12_04_00_00 12041950 12040800    # Astel, Naturalborn of the Void (no talk file of its own)
 m25_00_00_00 25001950 25000800    # Finger Birthing Grounds (Metyr; no talk file of its own)
+# Redmane Castle: not a boss room. The residents stand on the raised area behind Castellan Jerren
+# once Radahn is dead (the festival is over); travel lands at the plaza's grace below it. The
+# grace's object is in the large tile around the castle's, so every spot comes from the file.
+m60_51_36_00 1051361950 9130 spots=hub-redmane.txt   # Redmane Castle Plaza (after Starscourge Radahn)

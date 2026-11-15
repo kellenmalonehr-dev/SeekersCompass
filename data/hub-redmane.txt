@@ -1,0 +1,5 @@
+# Redmane Castle, the raised area behind Castellan Jerren. Stood on by the user, 2026-11-14.
+hewg 70.713 97.265 63.898 -0.967
+husks 80.301 97.265 68.867 -0.031
+enia 84.704 97.265 63.985 0.399
+roderika 72.223 97.265 56.003 -2.601
