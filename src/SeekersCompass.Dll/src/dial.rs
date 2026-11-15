@@ -191,12 +191,12 @@ fn prepare_row(taken: f32, dealt: f32) -> Result<(), String> {
     Ok(())
 }
 
-/// Both borrowed rows are area-scaling rows for enemies (HP rate 5.7 to 5.8, attack rate 2.7).
-fn claim(row: Option<&mut SP_EFFECT_PARAM_ST>, id: i32) -> Result<&mut SP_EFFECT_PARAM_ST, String> {
+/// The borrowed rows (7210 to 7280) are area-scaling rows for enemies (HP rate 5.3 to 5.8, attack rate 2.6 to 2.7).
+pub(crate) fn claim(row: Option<&mut SP_EFFECT_PARAM_ST>, id: i32) -> Result<&mut SP_EFFECT_PARAM_ST, String> {
     let row = row.ok_or(format!("row {id} doesn't exist"))?;
     let hp = row.max_hp_rate();
     let atk = row.physics_attack_power_rate();
-    if (5.7..5.9).contains(&hp) && (2.7..2.8).contains(&atk) {
+    if (5.2..5.9).contains(&hp) && (2.5..2.8).contains(&atk) {
         neutralize(row);
         log(&format!("row {id} made neutral"));
     } else if hp != 1.0 || atk != 1.0 {

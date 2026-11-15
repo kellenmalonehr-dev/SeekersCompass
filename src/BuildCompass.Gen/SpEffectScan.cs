@@ -70,3 +70,38 @@ static class FieldUse
             Console.WriteLine($"  {g.Key,-8} x{g.Count(),-5} e.g. {string.Join(", ", g.Take(8).Select(r => r.ID))}");
     }
 }
+
+/// `talisman <name part>`: talismans whose name contains the text, and how their effect rows (and
+/// the rows those lead to) differ from an empty effect row.
+static class TalismanRows
+{
+    public static void Run(string[] args)
+    {
+        var gd = GameData.Load(Path.Combine(Program.GameDir, "regulation.bin"));
+        var text = new Text(Path.Combine(Program.GameDir, "msg", "engus", "item_dlc02.msgbnd.dcx"));
+        var sp = gd["SpEffectParam"];
+        var blank = sp[2] ?? sp.Rows[0];
+        foreach (var acc in gd["EquipParamAccessory"].Rows)
+        {
+            string name = text.Get("AccessoryName", acc.ID);
+            if (name == null || !name.Contains(string.Join(" ", args), StringComparison.OrdinalIgnoreCase)) continue;
+            Console.WriteLine($"== {acc.ID} {name}: refId {acc["refId"].Value}");
+            var seen = new HashSet<int>();
+            var todo = new Queue<int>(new[] { acc.Get<int>("refId") });
+            while (todo.Count > 0 && seen.Count < 12)
+            {
+                int id = todo.Dequeue();
+                if (id <= 0 || !seen.Add(id) || sp[id] == null) continue;
+                var row = sp[id];
+                Console.WriteLine($"  row {id}:");
+                foreach (var cell in row.Cells)
+                {
+                    string v = Convert.ToString(cell.Value), b = Convert.ToString(blank[cell.Def.InternalName].Value);
+                    if (v == b) continue;
+                    Console.WriteLine($"    {cell.Def.InternalName} = {v}   (empty row: {b})");
+                    if (cell.Def.InternalName.EndsWith("SpEffectId") || cell.Def.InternalName.EndsWith("SpEffectId0")) { try { todo.Enqueue(Convert.ToInt32(cell.Value)); } catch { } }
+                }
+            }
+        }
+    }
+}
