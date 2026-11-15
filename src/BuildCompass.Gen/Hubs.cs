@@ -109,6 +109,14 @@ static class Hubs
         var source = MSBE.Read(holdPath); // untouched, to copy characters from
         var holdTalk = BND4.Read(Program.In("script", "talk", Roundtable + ".talkesdbnd.dcx"));
         var emedf = new Emedf(Path.Combine(Program.Root, "deps", "DarkScript3", "DarkScript3", "Resources", "er-common.emedf.json"));
+        // Roundtable Hold's own merchant gets the same effects from a small event in the Hold's script.
+        var holdEvents = EMEVD.Read(Program.In("event", Roundtable + ".emevd.dcx"));
+        if (holdEvents.Events.Any(e => e.ID == HoldMerchantEvent)) throw new Exception($"event {HoldMerchantEvent} already exists in {Roundtable}");
+        var sit = new EMEVD.Event(HoldMerchantEvent, EMEVD.Event.RestBehaviorType.Default);
+        foreach (int fx in MerchantSits) sit.Instructions.Add(emedf.Make(2004, 8, HusksEntity, fx));
+        holdEvents.Events.Add(sit);
+        holdEvents.Events.First(e => e.ID == 0).Instructions.Add(emedf.Make(2000, 0, 0, (uint)HoldMerchantEvent, 0));
+        holdEvents.Write(OutFile(outDir, "event", Roundtable + ".emevd.dcx"));
         var warp = gd["BonfireWarpParam"];
         // The Husks' one shop, in the copy of their script that every hub room gets and in Roundtable Hold's own.
         var shops = gd["ShopLineupParam"];
@@ -245,6 +253,10 @@ static class Hubs
     const string MerchantMap = "m60_44_39_00", MerchantPart = "c3200_9000";
     const int MerchantNpc = 32001110, HusksNpc = 500020079, HusksMerchantNpc = 32009790;
     static MSBE.Part.Enemy merchantTemplate;
+    /// Common event 90005703 gives a merchant these while he is friendly; without them he stands.
+    static readonly int[] MerchantSits = { 9628, 9635, 9643 };
+    const long HoldMerchantEvent = 11102790;
+    const uint HusksEntity = 11100700;
 
     /// Adds the merchant's NpcParam row (the playing merchant, named as the Husks, dropping nothing)
     /// and reads the merchant's map placement to copy from.
@@ -322,6 +334,7 @@ static class Hubs
 
         string talkFolder = talk.Files[0].Name[..(talk.Files[0].Name.LastIndexOf('\\') + 1)];
         var characters = new List<uint>();
+        uint husksEntity = 0;
         var hidden = new List<uint>(); // prop entities
         var effects = new List<(uint prop, int dummyPoly, int sfx)>();
 
@@ -350,6 +363,7 @@ static class Hubs
             character.Name = NewName(character.ModelName);
             character.InstanceID = Instance(character.Name);
             character.EntityID = Entity(ref nextCharacter);
+            if (g == Husks) husksEntity = character.EntityID;
             character.CollisionPartName = localCharacter.CollisionPartName;
             character.Unk1 = localCharacter.Unk1.DeepCopy();
             character.Gparam = localCharacter.Gparam.DeepCopy();
@@ -408,6 +422,8 @@ static class Hubs
             new(1003, 2, new byte[] { 0, (byte)(dead ? 1 : 0), 0, 0 }.Concat(BitConverter.GetBytes(hub.BossDeadFlag)).ToArray());
         var hide = new EMEVD.Event(hideId, EMEVD.Event.RestBehaviorType.Default);
         foreach (uint c in characters) hide.Instructions.Add(emedf.Make(2004, 15, c, 1)); // Set Character Invincibility: on
+        // The merchant sits (and plays): the effects the game's own merchant event puts on a friendly merchant.
+        foreach (int fx in MerchantSits) hide.Instructions.Add(emedf.Make(2004, 8, husksEntity, fx)); // Set SpEffect
         hide.Instructions.Add(EndIfBoss(dead: true));
         foreach (uint c in characters) hide.Instructions.Add(emedf.Make(2004, 5, c, 0)); // Change Character Enable State: off
         foreach (uint a in hidden) hide.Instructions.Add(emedf.Make(2005, 3, a, 0)); // Change Asset Enable State: off
