@@ -15,6 +15,7 @@ static class BellBearings
 {
     const int OpenShop = 22, ClearMenu = 20, AwardLot = 104, GetFlag = 15;
 
+    /// Lot is the row that holds the bell bearing itself, not the start of the death drop.
     record Seller(int TalkId, int Lot, uint Flag, string Bell, string Where);
 
     static List<Seller> Find(GameData gd, Text text)
@@ -43,8 +44,8 @@ static class BellBearings
                 if (e.TalkID <= 0 || !bellOf.TryGetValue(e.NPCParamID, out var b)) continue;
                 uint flag = lots[b.Value.lot].Get<uint>("getItemFlagId");
                 if (flag == 0) throw new Exception($"item lot {b.Value.lot} ({b.Value.bell}) has no pickup flag, so it would be given again and again");
-                // The drop is awarded from its first lot, as the game does on death.
-                found.TryAdd(e.TalkID, new Seller(e.TalkID, b.drop, flag, b.Value.bell, $"{map} {e.Name}"));
+                // Only the bell bearing is given: the rest of a death drop (Patches' spear and armor) stays a death drop.
+                found.TryAdd(e.TalkID, new Seller(e.TalkID, b.Value.lot, flag, b.Value.bell, $"{map} {e.Name}"));
             }
         }
         return found.Values.OrderBy(m => m.Bell).ThenBy(m => m.TalkId).ToList();
@@ -75,6 +76,21 @@ static class BellBearings
                 File.Delete(f);
 
         var sellers = Find(gd, text).ToDictionary(s => $"t{s.TalkId}.esd");
+        // Awarding a lot also awards the rows that follow it, so each bell bearing gets a row of its
+        // own with nothing after it, sharing the original's pickup flag.
+        var lots = gd["ItemLotParam_map"];
+        var giftOf = new Dictionary<int, int>();
+        int next = 9_780_000;
+        foreach (var s in sellers.Values.Where(s => !giftOf.ContainsKey(s.Lot)))
+        {
+            while (lots[next - 1] != null || lots[next] != null || lots[next + 1] != null) next += 10;
+            lots.Rows.Add(new PARAM.Row(lots[s.Lot]) { ID = next, Name = "" });
+            giftOf[s.Lot] = next;
+            next += 10;
+        }
+        lots.Rows = lots.Rows.OrderBy(r => r.ID).ToList();
+        gd.Regulation.Files.First(x => Path.GetFileNameWithoutExtension(x.Name) == "ItemLotParam_map").Bytes = lots.Write();
+        SoulsFormats.Cryptography.RegulationDecryptor.EncryptERRegulation(Path.Combine(mod, "regulation.bin"), gd.Regulation);
         var always = EzState.Lit(1);
         byte[] wait = null; // how the game's own helper waits after giving an item
         var files = Program.InFiles("*.talkesdbnd.dcx", "script", "talk").ToList();
@@ -123,7 +139,7 @@ static class BellBearings
                         };
                         group[give] = new ESD.State
                         {
-                            EntryCommands = { new ESD.CommandCall(1, AwardLot, EzState.Lit(seller.Lot)) },
+                            EntryCommands = { new ESD.CommandCall(1, AwardLot, EzState.Lit(giftOf[seller.Lot])) },
                             Conditions = { new ESD.Condition { TargetState = shop, Evaluator = wait } },
                         };
                         shops++;
