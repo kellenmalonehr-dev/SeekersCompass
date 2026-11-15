@@ -4,8 +4,9 @@
 //!    having discovered it before the mod) gives the items found there.
 //! 2. Each character's items, equipped set, unbanked kills and running buff are kept in
 //!    characters/<slot and name>.txt, so the buff survives quitting.
-//! 3. On a sit, kills since the last sit unlock the equipped keepsakes' bonuses for the equipped
-//!    seat's time; the stronger buff wins; dying ends it.
+//! 3. On a sit, kills since the last sit set how many stacks the equipped keepsakes can hold and how
+//!    long stacks last, for the equipped seat's time; the stronger buff wins; dying ends it. Hits
+//!    the player lands build the stacks (buff.rs).
 //! 4. The equipped seat and keepsakes appear where the player sits, after the rest resets the world.
 //!
 //! 5. The grace menu's Camp line lists owned items (equipped ones glow); choosing one equips or
@@ -16,7 +17,7 @@
 //!    an icon on screen while it runs.
 //!
 //! A new track fills an empty slot by itself. With TestKeys = 1 in seekers_compass.ini,
-//! F7 counts as a sit and F10 adds 5 test kills.
+//! F7 counts as a sit, F8 as a landed hit and F10 adds 5 test kills.
 
 
 mod buff;
@@ -41,6 +42,7 @@ use items::{Item, Kind};
 use store::Store;
 
 const KEY_F7: i32 = 0x76;
+const KEY_F8: i32 = 0x77;
 const KEY_F9: i32 = 0x78;
 const KEY_F10: i32 = 0x79;
 
@@ -94,7 +96,7 @@ pub fn hide_menu() {
 struct Settings {
     /// Gives every defined item, for testing.
     grant_all: bool,
-    /// F7 counts as a sit, F10 adds 5 kills.
+    /// F7 counts as a sit, F8 as a landed hit, F10 adds 5 kills.
     test_keys: bool,
     /// Keeps writing the player's position to position.txt, for picking spots in game.
     write_position: bool,
@@ -109,6 +111,12 @@ struct Settings {
     /// How far, and at what angle from straight ahead, a player standing up on a seat steps off it.
     step_off: f32,
     step_off_turn: f32,
+    /// The glow shown at full stacks (a SpEffectVfxParam row); 0 for none.
+    stack_glow: i32,
+    /// Seconds without landing a hit before stacks start to drop: the least, and the most that
+    /// kills banked at a sit can stretch it to (a second for every 10 kills).
+    stack_seconds: f32,
+    stack_seconds_max: f32,
 }
 
 impl Default for Settings {
@@ -128,6 +136,10 @@ impl Default for Settings {
             buff_icon: 20406,
             step_off: 0.8,
             step_off_turn: 0.0,
+            // The glow of Exalted Flesh.
+            stack_glow: 5350,
+            stack_seconds: 4.0,
+            stack_seconds_max: 10.0,
         }
     }
 }
@@ -149,6 +161,9 @@ fn read_settings() -> Settings {
             "bufficon" => s.buff_icon = value.parse().unwrap_or(s.buff_icon),
             "stepoff" => s.step_off = value.parse().unwrap_or(s.step_off),
             "stepoffturn" => s.step_off_turn = value.parse().unwrap_or(s.step_off_turn),
+            "stackglow" => s.stack_glow = value.parse().unwrap_or(s.stack_glow),
+            "stackseconds" => s.stack_seconds = value.parse().unwrap_or(s.stack_seconds),
+            "stacksecondsmax" => s.stack_seconds_max = value.parse().unwrap_or(s.stack_seconds_max),
             _ => {}
         }
     }
@@ -199,6 +214,8 @@ struct State {
     buff: Buff,
     /// The player was dead last frame.
     dead: bool,
+    /// A hit of the player's took health off someone this frame.
+    landed: bool,
     /// Kills banked at the last sit, for the Camp status line.
     last_sit_kills: u32,
     /// After lifting the player onto a seat: when to log where they settled, and the floor height.
@@ -239,7 +256,7 @@ impl State {
         }
         if self.frames_in_world % 60 == 0 {
             self.settings = read_settings();
-            self.buff.set_icon(self.settings.buff_icon);
+            self.buff.set_look(self.settings.buff_icon, self.settings.stack_glow);
             if items::modified() != self.items_modified {
                 self.items_modified = items::modified();
                 self.items = items::load();
@@ -300,7 +317,7 @@ impl State {
     /// Runs once the player has settled after a load: picks up this character's file.
     fn enter_world(&mut self) {
         self.settings = read_settings();
-        self.buff.set_icon(self.settings.buff_icon);
+        self.buff.set_look(self.settings.buff_icon, self.settings.stack_glow);
         self.reset_until = Some(Instant::now() + RESET_WINDOW);
         self.items_modified = items::modified();
         self.items = items::load();
@@ -573,7 +590,11 @@ impl State {
             }
         }
         self.dead = dead;
-        self.buff.tick(player);
+        if self.settings.test_keys && input::is_key_pressed(KEY_F8) {
+            log("F8: counting this as a landed hit");
+            self.buff.test_hit(player);
+        }
+        self.buff.tick(player, std::mem::take(&mut self.landed));
         if died {
             self.save();
         }
@@ -583,10 +604,17 @@ impl State {
         let keepsakes: Vec<Keepsake> = self
             .equipped(Kind::Keepsake)
             .iter()
-            .filter_map(|i| Some(Keepsake { stat: i.stat?, max: i.max, kills_per_point: i.kills_per_point }))
+            .filter_map(|i| {
+                let effect = i.effect?;
+                Some(Keepsake { effect, max: i.max, kills_per_point: i.kills_per_point, per_stack: i.per_stack.unwrap_or(effect.per_stack()) })
+            })
             .collect();
         match self.equipped(Kind::Seat).first() {
-            Some(seat) => self.buff.offer(Grant::earned(&keepsakes, self.kills, seat.minutes)),
+            Some(seat) => {
+                let s = &self.settings;
+                let seconds = (s.stack_seconds + (self.kills / 10) as f32).min(s.stack_seconds_max.max(s.stack_seconds)).clamp(1.0, 600.0);
+                self.buff.offer(Grant::earned(&keepsakes, self.kills, seat.minutes, Duration::from_secs_f32(seconds)))
+            }
             None => log("buff: no seat equipped, so no buff"),
         }
         log(&format!("buff now: {}", self.buff.status()));
@@ -633,6 +661,10 @@ impl State {
             }
             let hp = chr.modules.data.hp;
             let before = self.hp.insert(handle, hp);
+            // A landed hit: health lost by someone whose last hit came from the player.
+            if before.is_some_and(|b| hp < b) && chr.last_hit_by == me && !resetting {
+                self.landed = true;
+            }
             if !before.is_some_and(|b| b > 0) || hp > 0 {
                 continue;
             }

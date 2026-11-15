@@ -5,8 +5,16 @@
 ; shows one line per track. Discovering a grace in "found" gives the item, including graces
 ; discovered before the mod was installed.
 ;
-; Seats set how long the buff lasts. Keepsakes set what it raises: a point for every
-; kills_per_point kills since your last sit, up to max. A Stamina point is 1% of max stamina.
+; Seats set how long the buff lasts. Keepsakes hold stacks, which the hits you land build while
+; the buff runs: one stack can be held for every kills_per_point kills since your last sit, up to
+; max. "effect" is what the stacks do:
+;   Fury         2% more damage to enemies per stack
+;   Second Wind  stamina recovers faster per stack (2 points; the Green Turtle Talisman is 8)
+;   Bulwark      3% less poise damage taken per stack
+;   Ward         at full stacks, a shell cuts the next 3 hits you take by 4% per stack
+;   Leech        at full stacks, your next hit heals 0.8% of max HP per stack
+; "per_stack = <number>" on a keepsake changes those amounts. A spent Ward or Leech comes back
+; when your stacks drop below full and are built up again.
 ; The camp menu numbers items by their order here (up to 64), so rebuild the menu after changes.
 ; Seats lie on the ground under the sitting player. "right" and "forward" (meters, as the sitting
 ; player faces) shift a model whose middle isn't where it should be; "turn" (degrees) turns it.
@@ -64,543 +72,303 @@ forward = 0.55
 minutes = 60
 found = 13001953              ; Crumbling Beast Grave
 
-[strength_1]
-name = Crystal of Strength 1
-track = strength
+[fury_1]
+name = Crystal of Fury 1
+track = fury
 tier = 1
 kind = keepsake
 model = AEG258_158
 scale = 0.3
-stat = Strength
-max = 2
+effect = Fury
+max = 3
 kills_per_point = 5
-found = 1042361950            ; Church of Elleh
+found = 1042361950    ; Church of Elleh
 
-[strength_2]
-name = Crystal of Strength 2
-track = strength
+[fury_2]
+name = Crystal of Fury 2
+track = fury
 tier = 2
 kind = keepsake
 model = AEG258_158
 scale = 0.34
-stat = Strength
-max = 4
+effect = Fury
+max = 5
 kills_per_point = 5
-found = 1035501952            ; Royal Moongazing Grounds
+found = 1035501952, 14001951    ; Royal Moongazing Grounds; Debate Parlor
 
-[strength_3]
-name = Crystal of Strength 3
-track = strength
+[fury_3]
+name = Crystal of Fury 3
+track = fury
 tier = 3
 kind = keepsake
 model = AEG258_158
 scale = 0.38
-stat = Strength
+effect = Fury
 max = 6
 kills_per_point = 5
-found = 1051361950            ; Redmane Castle Plaza
+found = 1051361950, 1036541951    ; Redmane Castle Plaza; Ninth Mt. Gelmir Campsite
 
-[strength_4]
-name = Crystal of Strength 4
-track = strength
+[fury_4]
+name = Crystal of Fury 4
+track = fury
 tier = 4
 kind = keepsake
 model = AEG258_158
 scale = 0.42
-stat = Strength
+effect = Fury
 max = 8
 kills_per_point = 5
-found = 11001957              ; Queen's Bedchamber
+found = 11001957, 1051571951    ; Queen's Bedchamber; Castle Sol Main Gate
 
-[strength_5]
-name = Crystal of Strength 5
-track = strength
+[fury_5]
+name = Crystal of Fury 5
+track = fury
 tier = 5
 kind = keepsake
 model = AEG258_158
 scale = 0.46
-stat = Strength
+effect = Fury
 max = 10
 kills_per_point = 5
-found = 13001950              ; Maliketh, the Black Blade
+found = 13001950, 15001950    ; Maliketh, the Black Blade; Malenia, Goddess of Rot
 
-[dexterity_1]
-name = Orrery of Dexterity 1
-track = dexterity
-tier = 1
-kind = keepsake
-model = AEG110_311
-scale = 0.45
-stat = Dexterity
-max = 2
-kills_per_point = 5
-found = 1042361950            ; Church of Elleh
-
-[dexterity_2]
-name = Orrery of Dexterity 2
-track = dexterity
-tier = 2
-kind = keepsake
-model = AEG110_311
-scale = 0.49
-stat = Dexterity
-max = 4
-kills_per_point = 5
-found = 14001951              ; Debate Parlor
-
-[dexterity_3]
-name = Orrery of Dexterity 3
-track = dexterity
-tier = 3
-kind = keepsake
-model = AEG110_311
-scale = 0.52
-stat = Dexterity
-max = 6
-kills_per_point = 5
-found = 1036541951            ; Ninth Mt. Gelmir Campsite
-
-[dexterity_4]
-name = Orrery of Dexterity 4
-track = dexterity
-tier = 4
-kind = keepsake
-model = AEG110_311
-scale = 0.56
-stat = Dexterity
-max = 8
-kills_per_point = 5
-found = 1051571951            ; Castle Sol Main Gate
-
-[dexterity_5]
-name = Orrery of Dexterity 5
-track = dexterity
-tier = 5
-kind = keepsake
-model = AEG110_311
-scale = 0.6
-stat = Dexterity
-max = 10
-kills_per_point = 5
-found = 15001950              ; Malenia, Goddess of Rot
-
-[intelligence_1]
-name = Tome of Intelligence 1
-track = intelligence
-tier = 1
-kind = keepsake
-model = AEG027_191
-scale = 0.8
-stat = Intelligence
-max = 2
-kills_per_point = 5
-found = 1042371950            ; Gatefront
-
-[intelligence_2]
-name = Tome of Intelligence 2
-track = intelligence
-tier = 2
-kind = keepsake
-model = AEG027_191
-scale = 0.85
-stat = Intelligence
-max = 4
-kills_per_point = 5
-found = 1037441950            ; Academy Gate Town
-
-[intelligence_3]
-name = Tome of Intelligence 3
-track = intelligence
-tier = 3
-kind = keepsake
-model = AEG027_191
-scale = 0.9
-stat = Intelligence
-max = 6
-kills_per_point = 5
-found = 1037531950            ; Primeval Sorcerer Azur
-
-[intelligence_4]
-name = Tome of Intelligence 4
-track = intelligence
-tier = 4
-kind = keepsake
-model = AEG027_191
-scale = 0.95
-stat = Intelligence
-max = 8
-kills_per_point = 5
-found = 12041950              ; Astel, Naturalborn of the Void
-
-[intelligence_5]
-name = Tome of Intelligence 5
-track = intelligence
-tier = 5
-kind = keepsake
-model = AEG027_191
-scale = 1
-stat = Intelligence
-max = 10
-kills_per_point = 5
-found = 13001960              ; Beside the Great Bridge
-
-[faith_1]
-name = Votive Candle of Faith 1
-track = faith
+[ward_1]
+name = Votive Candle of Warding 1
+track = ward
 tier = 1
 kind = keepsake
 model = AEG020_991
 scale = 0.8
-stat = Faith
-max = 2
+effect = Ward
+max = 3
 kills_per_point = 5
-found = 1043371950            ; Agheel Lake North
+found = 1043371950, 1044331950    ; Agheel Lake North; Castle Morne Rampart
 
-[faith_2]
-name = Votive Candle of Faith 2
-track = faith
+[ward_2]
+name = Votive Candle of Warding 2
+track = ward
 tier = 2
 kind = keepsake
 model = AEG020_991
 scale = 0.85
-stat = Faith
-max = 4
+effect = Ward
+max = 5
 kills_per_point = 5
-found = 1037461950            ; Church of Vows
+found = 1037461950, 14001950    ; Church of Vows; Raya Lucaria Grand Library
 
-[faith_3]
-name = Votive Candle of Faith 3
-track = faith
+[ward_3]
+name = Votive Candle of Warding 3
+track = ward
 tier = 3
 kind = keepsake
 model = AEG020_991
 scale = 0.9
-stat = Faith
+effect = Ward
 max = 6
 kills_per_point = 5
-found = 1037491950            ; Church of Inhibition
+found = 1037491950, 12011951    ; Church of Inhibition; Ainsel River Well Depths
 
-[faith_4]
-name = Votive Candle of Faith 4
-track = faith
+[ward_4]
+name = Votive Candle of Warding 4
+track = ward
 tier = 4
 kind = keepsake
 model = AEG020_991
 scale = 0.95
-stat = Faith
+effect = Ward
 max = 8
 kills_per_point = 5
-found = 11001950              ; Elden Throne
+found = 11001950, 1053521950    ; Elden Throne; Fire Giant
 
-[faith_5]
-name = Votive Candle of Faith 5
-track = faith
+[ward_5]
+name = Votive Candle of Warding 5
+track = ward
 tier = 5
 kind = keepsake
 model = AEG020_991
 scale = 1
-stat = Faith
+effect = Ward
 max = 10
 kills_per_point = 5
-found = 1048571950            ; Ordina, Liturgical Town
+found = 1048571950, 15001952    ; Ordina, Liturgical Town; Elphael Inner Wall
 
-[arcane_1]
-name = Platter of Arcane 1
-track = arcane
+[leech_1]
+name = Platter of Leeching 1
+track = leech
 tier = 1
 kind = keepsake
 model = AEG277_128
 scale = 0.8
-stat = Arcane
-max = 2
+effect = Leech
+max = 3
 kills_per_point = 5
-found = 10001950              ; Godrick the Grafted
+found = 10001950, 1042371950    ; Godrick the Grafted; Gatefront
 
-[arcane_2]
-name = Platter of Arcane 2
-track = arcane
+[leech_2]
+name = Platter of Leeching 2
+track = leech
 tier = 2
 kind = keepsake
 model = AEG277_128
 scale = 0.85
-stat = Arcane
-max = 4
+effect = Leech
+max = 5
 kills_per_point = 5
-found = 12071951              ; Nokron, Eternal City
+found = 12071951, 1037441950    ; Nokron, Eternal City; Academy Gate Town
 
-[arcane_3]
-name = Platter of Arcane 3
-track = arcane
+[leech_3]
+name = Platter of Leeching 3
+track = leech
 tier = 3
 kind = keepsake
 model = AEG277_128
 scale = 0.9
-stat = Arcane
+effect = Leech
 max = 6
 kills_per_point = 5
-found = 16001952              ; Volcano Manor
+found = 16001952, 1037531950    ; Volcano Manor; Primeval Sorcerer Azur
 
-[arcane_4]
-name = Platter of Arcane 4
-track = arcane
+[leech_4]
+name = Platter of Leeching 4
+track = leech
 tier = 4
 kind = keepsake
 model = AEG277_128
 scale = 0.95
-stat = Arcane
+effect = Leech
 max = 8
 kills_per_point = 5
-found = 12031950              ; Prince of Death's Throne
+found = 12031950, 12041950    ; Prince of Death's Throne; Astel, Naturalborn of the Void
 
-[arcane_5]
-name = Platter of Arcane 5
-track = arcane
+[leech_5]
+name = Platter of Leeching 5
+track = leech
 tier = 5
 kind = keepsake
 model = AEG277_128
 scale = 1
-stat = Arcane
+effect = Leech
 max = 10
 kills_per_point = 5
-found = 13001951              ; Dragonlord Placidusax
+found = 13001951, 13001960    ; Dragonlord Placidusax; Beside the Great Bridge
 
-[vigor_1]
-name = Jar of Vigor 1
-track = vigor
+[second_wind_1]
+name = Waterskin of Second Wind 1
+track = second_wind
 tier = 1
 kind = keepsake
-model = AEG027_068
+model = AEG027_220
 scale = 0.8
-stat = Vigor
-max = 2
+effect = Second Wind
+max = 3
 kills_per_point = 5
-found = 1043341950            ; Church of Pilgrimage
+found = 10001952, 1043341950    ; Castleward Tunnel; Church of Pilgrimage
 
-[vigor_2]
-name = Jar of Vigor 2
-track = vigor
+[second_wind_2]
+name = Waterskin of Second Wind 2
+track = second_wind
 tier = 2
 kind = keepsake
-model = AEG027_068
+model = AEG027_220
 scale = 0.85
-stat = Vigor
-max = 4
+effect = Second Wind
+max = 5
 kills_per_point = 5
-found = 1035501952            ; Royal Moongazing Grounds
+found = 1034411950, 1035501952    ; Moonlight Altar; Royal Moongazing Grounds
 
-[vigor_3]
-name = Jar of Vigor 3
-track = vigor
+[second_wind_3]
+name = Waterskin of Second Wind 3
+track = second_wind
 tier = 3
 kind = keepsake
-model = AEG027_068
+model = AEG027_220
 scale = 0.9
-stat = Vigor
+effect = Second Wind
 max = 6
 kills_per_point = 5
-found = 1046401950            ; Smoldering Church
+found = 16001950, 1046401950    ; Rykard, Lord of Blasphemy; Smoldering Church
 
-[vigor_4]
-name = Jar of Vigor 4
-track = vigor
+[second_wind_4]
+name = Waterskin of Second Wind 4
+track = second_wind
 tier = 4
 kind = keepsake
-model = AEG027_068
+model = AEG027_220
 scale = 0.95
-stat = Vigor
+effect = Second Wind
 max = 8
 kills_per_point = 5
-found = 1049531950            ; Zamor Ruins
+found = 1053521950, 1049531950    ; Fire Giant; Zamor Ruins
 
-[vigor_5]
-name = Jar of Vigor 5
-track = vigor
+[second_wind_5]
+name = Waterskin of Second Wind 5
+track = second_wind
 tier = 5
 kind = keepsake
-model = AEG027_068
+model = AEG027_220
 scale = 1
-stat = Vigor
+effect = Second Wind
 max = 10
 kills_per_point = 5
-found = 15001954              ; Haligtree Roots
+found = 11051953, 15001954    ; Leyndell, Capital of Ash; Haligtree Roots
 
-[mind_1]
-name = Lamp of Mind 1
-track = mind
+[bulwark_1]
+name = Pack of the Bulwark 1
+track = bulwark
 tier = 1
 kind = keepsake
-model = AEG237_032
+model = AEG201_034
 scale = 0.8
-stat = Mind
-max = 2
+effect = Bulwark
+max = 3
 kills_per_point = 5
-found = 1044331950            ; Castle Morne Rampart
+found = 1041381950    ; Stormhill Shack
 
-[mind_2]
-name = Lamp of Mind 2
-track = mind
+[bulwark_2]
+name = Pack of the Bulwark 2
+track = bulwark
 tier = 2
 kind = keepsake
-model = AEG237_032
+model = AEG201_034
 scale = 0.85
-stat = Mind
-max = 4
+effect = Bulwark
+max = 5
 kills_per_point = 5
-found = 14001950              ; Raya Lucaria Grand Library
+found = 12071950    ; Siofra River Well Depths
 
-[mind_3]
-name = Lamp of Mind 3
-track = mind
+[bulwark_3]
+name = Pack of the Bulwark 3
+track = bulwark
 tier = 3
 kind = keepsake
-model = AEG237_032
+model = AEG201_034
 scale = 0.9
-stat = Mind
+effect = Bulwark
 max = 6
 kills_per_point = 5
-found = 12011951              ; Ainsel River Well Depths
+found = 1052381950    ; Starscourge Radahn
 
-[mind_4]
-name = Lamp of Mind 4
-track = mind
+[bulwark_4]
+name = Pack of the Bulwark 4
+track = bulwark
 tier = 4
 kind = keepsake
-model = AEG237_032
+model = AEG201_034
 scale = 0.95
-stat = Mind
+effect = Bulwark
 max = 8
 kills_per_point = 5
-found = 1053521950            ; Fire Giant
+found = 1051571950    ; Snow Valley Ruins Overlook
 
-[mind_5]
-name = Lamp of Mind 5
-track = mind
+[bulwark_5]
+name = Pack of the Bulwark 5
+track = bulwark
 tier = 5
 kind = keepsake
-model = AEG237_032
+model = AEG201_034
 scale = 1
-stat = Mind
+effect = Bulwark
 max = 10
 kills_per_point = 5
-found = 15001952              ; Elphael Inner Wall
-
-[endurance_1]
-name = Pack of Endurance 1
-track = endurance
-tier = 1
-kind = keepsake
-model = AEG201_034
-scale = 0.8
-stat = Endurance
-max = 2
-kills_per_point = 5
-found = 1041381950            ; Stormhill Shack
-
-[endurance_2]
-name = Pack of Endurance 2
-track = endurance
-tier = 2
-kind = keepsake
-model = AEG201_034
-scale = 0.85
-stat = Endurance
-max = 4
-kills_per_point = 5
-found = 12071950              ; Siofra River Well Depths
-
-[endurance_3]
-name = Pack of Endurance 3
-track = endurance
-tier = 3
-kind = keepsake
-model = AEG201_034
-scale = 0.9
-stat = Endurance
-max = 6
-kills_per_point = 5
-found = 1052381950            ; Starscourge Radahn
-
-[endurance_4]
-name = Pack of Endurance 4
-track = endurance
-tier = 4
-kind = keepsake
-model = AEG201_034
-scale = 0.95
-stat = Endurance
-max = 8
-kills_per_point = 5
-found = 1051571950            ; Snow Valley Ruins Overlook
-
-[endurance_5]
-name = Pack of Endurance 5
-track = endurance
-tier = 5
-kind = keepsake
-model = AEG201_034
-scale = 1
-stat = Endurance
-max = 10
-kills_per_point = 5
-found = 13001950              ; Maliketh, the Black Blade
-
-[stamina_1]
-name = Waterskin of Stamina 1
-track = stamina
-tier = 1
-kind = keepsake
-model = AEG027_220
-scale = 0.8
-stat = Stamina
-max = 4
-kills_per_point = 2
-found = 10001952              ; Castleward Tunnel
-
-[stamina_2]
-name = Waterskin of Stamina 2
-track = stamina
-tier = 2
-kind = keepsake
-model = AEG027_220
-scale = 0.85
-stat = Stamina
-max = 8
-kills_per_point = 2
-found = 1034411950            ; Moonlight Altar
-
-[stamina_3]
-name = Waterskin of Stamina 3
-track = stamina
-tier = 3
-kind = keepsake
-model = AEG027_220
-scale = 0.9
-stat = Stamina
-max = 12
-kills_per_point = 2
-found = 16001950              ; Rykard, Lord of Blasphemy
-
-[stamina_4]
-name = Waterskin of Stamina 4
-track = stamina
-tier = 4
-kind = keepsake
-model = AEG027_220
-scale = 0.95
-stat = Stamina
-max = 16
-kills_per_point = 2
-found = 1053521950            ; Fire Giant
-
-[stamina_5]
-name = Waterskin of Stamina 5
-track = stamina
-tier = 5
-kind = keepsake
-model = AEG027_220
-scale = 1
-stat = Stamina
-max = 20
-kills_per_point = 2
-found = 11051953              ; Leyndell, Capital of Ash
+found = 13001950    ; Maliketh, the Black Blade
 

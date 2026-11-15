@@ -15,7 +15,6 @@ mod items;
 mod loadouts;
 mod pickup;
 mod scan;
-mod stacks;
 
 use std::fs::OpenOptions;
 use std::io::Write;
@@ -142,12 +141,11 @@ struct Feature {
     when_off: Option<fn()>,
 }
 
-const FEATURES: [Feature; 5] = [
+const FEATURES: [Feature; 4] = [
     Feature { name: "loadouts", section: "Loadouts", on_by_default: true, old_claim: "GraceLoadouts", old_mod: "Grace Loadouts", start: loadouts::start, when_off: None },
     Feature { name: "items", section: "GraceItems", on_by_default: true, old_claim: "GraceItems", old_mod: "Grace Items", start: items::start, when_off: Some(items::hide_menu) },
     Feature { name: "dial", section: "DamageDial", on_by_default: false, old_claim: "DamageDial", old_mod: "Damage Dial", start: dial::start, when_off: None },
     Feature { name: "pickup", section: "AutoPickup", on_by_default: true, old_claim: "SeekersCompassAutoPickup", old_mod: "auto pickup", start: pickup::start, when_off: None },
-    Feature { name: "stacks", section: "StackTest", on_by_default: false, old_claim: "SeekersCompassStackTest", old_mod: "stack test", start: stacks::start, when_off: None },
 ];
 
 fn start() {

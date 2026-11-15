@@ -29,7 +29,9 @@ WHAT YOU GET
   the map by the damage stats you pick.
 - Loadouts: at a grace, save your current gear to one of five slots and equip it again later.
 - Camp (Grace Items): graces you have found give you items. Equip a seat and two keepsakes
-  under Camp, kill enemies, then rest: you get a stat buff for a while.
+  under Camp, kill enemies, then rest: for a while, the hits you land build stacks that
+  make you stronger (more damage, a protective shell, healing, stamina or poise, by keepsake).
+  The more you killed before resting, the more stacks you can hold. You glow at full stacks.
 - Auto pickup: plants, items lying in the world and your own lost runes are picked up as you
   walk past. Things enemies drop still need the button.
 - Merchant bell bearings: walk up to a wandering merchant and you get their bell bearing, so

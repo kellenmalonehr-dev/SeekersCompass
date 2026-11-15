@@ -8,9 +8,10 @@
 //! kind = keepsake               <- seat or keepsake
 //! model = AEG258_158            <- the game model shown at the grace
 //! scale = 0.4                   <- optional, 1 by default
-//! stat = Strength               <- keepsakes: what the buff raises
-//! max = 1                       <- keepsakes: the most it raises it by
-//! kills_per_point = 5           <- keepsakes: kills since the last sit for each point
+//! effect = Fury                 <- keepsakes: Fury, Ward, Leech, Second Wind or Bulwark (buff.rs)
+//! max = 3                       <- keepsakes: the most stacks it can hold
+//! kills_per_point = 5           <- keepsakes: kills since the last sit for each stack it can hold
+//! per_stack = 2                 <- keepsakes, optional: what one stack is worth (buff.rs has the defaults)
 //! minutes = 15                  <- seats: how long the buff lasts
 //! lift = 0.44                   <- seats: how high its top is; the sitting player is lifted onto it
 //! right = 0.5, forward = -1.0  <- meters to shift the model from its usual spot, as the sitting player faces;
@@ -19,7 +20,7 @@
 //!                                  discovered, including graces discovered before the mod
 //! ```
 
-use super::buff::Stat;
+use super::buff::Effect;
 use super::log;
 
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
@@ -40,7 +41,9 @@ pub struct Item {
     pub kind: Kind,
     pub model: String,
     pub scale: f32,
-    pub stat: Option<Stat>,
+    pub effect: Option<Effect>,
+    /// What one stack is worth; None for the effect's usual amount.
+    pub per_stack: Option<f32>,
     pub max: u32,
     pub kills_per_point: u32,
     pub minutes: f32,
@@ -65,7 +68,8 @@ impl Item {
             kind: Kind::Keepsake,
             model: String::new(),
             scale: 1.0,
-            stat: None,
+            effect: None,
+            per_stack: None,
             max: 0,
             kills_per_point: 5,
             minutes: 15.0,
@@ -81,8 +85,8 @@ impl Item {
         if !super::valid_asset(&self.model) {
             return Some("its model isn't AEG###_###");
         }
-        if self.kind == Kind::Keepsake && (self.stat.is_none() || self.max == 0) {
-            return Some("a keepsake needs a stat and a max above 0");
+        if self.kind == Kind::Keepsake && (self.effect.is_none() || self.max == 0) {
+            return Some("a keepsake needs an effect and a max above 0");
         }
         None
     }
@@ -142,7 +146,8 @@ pub fn load() -> Vec<Item> {
                 true
             }
             "scale" => value.parse().map(|v| item.scale = v).is_ok(),
-            "stat" => Stat::parse(value).map(|s| item.stat = Some(s)).is_some(),
+            "effect" => Effect::parse(value).map(|e| item.effect = Some(e)).is_some(),
+            "per_stack" => value.parse().map(|v: f32| item.per_stack = Some(v.clamp(0.0, 100.0))).is_ok(),
             "max" => value.parse().map(|v| item.max = v).is_ok(),
             "kills_per_point" => value.parse().map(|v: u32| item.kills_per_point = v.max(1)).is_ok(),
             "minutes" => value.parse().map(|v| item.minutes = v).is_ok(),

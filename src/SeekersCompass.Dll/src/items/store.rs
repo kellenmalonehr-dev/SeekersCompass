@@ -5,7 +5,8 @@
 //! equipped bedroll_worn           <- an equipped item (one seat, up to two keepsakes)
 //! kills 7                         <- kills since the last sit, not yet banked
 //! announce strength_3             <- a found item whose pop-up hasn't been shown yet
-//! buff 612 900 Strength:1 Stamina:4  <- the running buff: seconds left, full length, bonuses
+//! buff 612 900 6 Fury:5:2 Ward:3:4   <- the running buff: seconds left, full length, seconds stacks
+//!                                     last, then each effect with its stacks and what one is worth
 //! ```
 //!
 //! The game's own save is never touched. The file is rewritten whole when anything changes.
@@ -14,7 +15,9 @@ use std::collections::BTreeSet;
 use std::fmt::Write as _;
 use std::path::PathBuf;
 
-use super::buff::{Grant, Stat};
+use std::time::Duration;
+
+use super::buff::{Add, Effect, Grant};
 use super::log;
 
 /// "slot<N> <name>": the save slot and character name, which together pick the file. The same
@@ -60,12 +63,16 @@ impl Store {
                 (Some("kills"), Some(n)) => s.kills = n.parse().unwrap_or(0),
                 (Some("buff"), Some(left)) => {
                     let length = words.next().and_then(|l| l.parse().ok());
-                    let adds: Vec<(Stat, u32)> = words
-                        .filter_map(|w| w.split_once(':'))
-                        .filter_map(|(stat, p)| Some((Stat::parse(stat)?, p.parse().ok()?)))
+                    // A buff saved by a build from before stacks has a stat here, and is dropped.
+                    let fall_off = words.next().and_then(|f| f.parse::<f32>().ok());
+                    let adds: Vec<Add> = words
+                        .filter_map(|w| {
+                            let mut parts = w.split(':');
+                            Some(Add { effect: Effect::parse(parts.next()?)?, cap: parts.next()?.parse().ok()?, per_stack: parts.next()?.parse().ok()? })
+                        })
                         .collect();
-                    if let (Ok(left), Some(length)) = (left.parse(), length) {
-                        s.buff = Some((Grant::from_parts(adds, length), left));
+                    if let (Ok(left), Some(length), Some(fall_off)) = (left.parse(), length, fall_off) {
+                        s.buff = Some((Grant::from_parts(adds, length, Duration::from_secs_f32(fall_off.clamp(0.0, 600.0))), left));
                     }
                 }
                 _ => {}
@@ -87,8 +94,8 @@ impl Store {
         }
         let _ = writeln!(out, "kills {}", self.kills);
         if let Some((grant, left)) = &self.buff {
-            let adds: Vec<String> = grant.adds.iter().map(|(s, p)| format!("{s:?}:{p}")).collect();
-            let _ = writeln!(out, "buff {left} {} {}", grant.length.as_secs(), adds.join(" "));
+            let adds: Vec<String> = grant.adds.iter().map(|a| format!("{:?}:{}:{}", a.effect, a.cap, a.per_stack)).collect();
+            let _ = writeln!(out, "buff {left} {} {} {}", grant.length.as_secs(), grant.fall_off.as_secs_f32(), adds.join(" "));
         }
         let path = Self::path(&self.key);
         let result = std::fs::create_dir_all(path.parent().expect("characters folder"))

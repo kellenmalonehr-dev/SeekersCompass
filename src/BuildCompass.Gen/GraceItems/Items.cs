@@ -2,13 +2,8 @@ namespace GraceItems.Gen;
 
 /// The parts of grace_items.txt the menu needs. The DLL reads the same file (items.rs), and both
 /// number items by their position in it, so the menu's flags line up with the DLL's.
-record Item(string Id, string Name, bool Seat, string Stat, int Max, float Minutes)
+record Item(string Id, string Name, bool Seat, string Effect, int Max, float Minutes)
 {
-    /// The menu line, e.g. "Worn Bedroll (seat, 15 min)" or "Crystal of Strength 1 (+1 Strength)".
-    public string Line => Seat
-        ? $"{Name} (seat, {Minutes:0.#} min)"
-        : Stat.Equals("stamina", StringComparison.OrdinalIgnoreCase) ? $"{Name} (+{Max}% stamina)" : $"{Name} (+{Max} {Stat})";
-
     public static List<Item> Load(string path)
     {
         var items = new List<Item>();
@@ -20,7 +15,7 @@ record Item(string Id, string Name, bool Seat, string Stat, int Max, float Minut
             bool seat = fields.GetValueOrDefault("kind", "keepsake").Equals("seat", StringComparison.OrdinalIgnoreCase);
             int.TryParse(fields.GetValueOrDefault("max", "0"), out int max);
             float.TryParse(fields.GetValueOrDefault("minutes", "15"), System.Globalization.CultureInfo.InvariantCulture, out float minutes);
-            items.Add(new Item(id, fields.GetValueOrDefault("name", id), seat, fields.GetValueOrDefault("stat", ""), max, minutes));
+            items.Add(new Item(id, fields.GetValueOrDefault("name", id), seat, new string(fields.GetValueOrDefault("effect", "").Where(char.IsLetter).ToArray()), max, minutes));
         }
         foreach (var raw in File.ReadAllLines(path))
         {
