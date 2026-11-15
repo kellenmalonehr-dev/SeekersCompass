@@ -13,10 +13,16 @@
 //!    behaviour module: the value stayed and changed nothing.)
 
 use std::collections::HashMap;
+use std::sync::atomic::{AtomicU32, Ordering};
 use std::time::{Duration, Instant};
 
 use eldenring::cs::{CSTaskGroupIndex, CSTaskImp, FieldInsHandle, WorldChrMan};
 use fromsoftware_shared::FromStatic;
+
+/// AttackSpeed, SpeedPhase and SpeedField from the ini, shared with the tasks of the other phases.
+static SPEED: AtomicU32 = AtomicU32::new(100);
+static PHASE: AtomicU32 = AtomicU32::new(1);
+static FIELD: AtomicU32 = AtomicU32::new(2);
 
 const CHECK_EVERY: u32 = 60;
 const SETTLE: u32 = 30;
@@ -29,20 +35,45 @@ fn log(text: &str) {
 
 pub fn start(tasks: &CSTaskImp) -> Result<(), String> {
     crate::run(tasks, "stacks", CSTaskGroupIndex::FrameBegin, State::default(), State::tick);
+    // The speed can be written at other points of the frame (SpeedPhase), to find one that
+    // comes after the game's scripts set it and before the animation uses it.
+    crate::run(tasks, "stacks speed 2", CSTaskGroupIndex::ChrIns_PreBehavior, (), |_| write_speed(2));
+    crate::run(tasks, "stacks speed 3", CSTaskGroupIndex::ChrIns_BehaviorSafe, (), |_| write_speed(3));
+    crate::run(tasks, "stacks speed 4", CSTaskGroupIndex::ChrIns_PostPhysics, (), |_| write_speed(4));
     Ok(())
 }
 
-/// Percent of normal animation speed, 50 to 300; 100 leaves the game alone.
-fn read_speed() -> u32 {
-    let mut speed = 100;
+/// AttackSpeed: percent of normal animation speed, 50 to 300; 100 leaves the game alone.
+/// SpeedPhase: 1 frame begin, 2 before behaviour, 3 after behaviour, 4 after physics.
+/// SpeedField: 1 the behaviour module's animation speed, 2 the behaviour data's multiplier.
+fn read_settings() -> (u32, u32, u32) {
+    let (mut speed, mut phase, mut field) = (100, 1, 2);
     for (key, value) in crate::ini("StackTest") {
-        if key == "attackspeed"
-            && let Ok(value) = value.parse::<u32>()
-        {
-            speed = value.clamp(50, 300);
+        let Ok(value) = value.parse::<u32>() else { continue };
+        match key.as_str() {
+            "attackspeed" => speed = value.clamp(50, 300),
+            "speedphase" => phase = value.clamp(1, 4),
+            "speedfield" => field = value.clamp(1, 2),
+            _ => {}
         }
     }
-    speed
+    (speed, phase, field)
+}
+
+/// Writes the wanted speed if this is the chosen phase.
+fn write_speed(phase: u32) {
+    let speed = SPEED.load(Ordering::Relaxed);
+    if speed == 100 || PHASE.load(Ordering::Relaxed) != phase {
+        return;
+    }
+    let Ok(world) = (unsafe { WorldChrMan::instance_mut() }) else { return };
+    let Some(player) = world.main_player.as_mut() else { return };
+    let want = speed as f32 / 100.0;
+    if FIELD.load(Ordering::Relaxed) == 1 {
+        player.chr_ins.modules.behavior.animation_speed = want;
+    } else {
+        player.chr_ins.modules.behavior_data.hks_animation_speed_multiplier = want;
+    }
 }
 
 #[derive(Default)]
@@ -53,9 +84,6 @@ struct State {
     stacks: u32,
     last_stack: Option<Instant>,
     speed: u32,
-    /// What was last written to the animation speed, and how often the game had changed it back.
-    wrote: Option<f32>,
-    resets: u32,
 }
 
 impl State {
@@ -64,7 +92,6 @@ impl State {
         let Some(me) = world.main_player.as_ref().map(|p| p.chr_ins.field_ins_handle) else {
             self.frames_in_world = 0;
             self.hp.clear();
-            self.wrote = None;
             return;
         };
         self.frames_in_world = self.frames_in_world.saturating_add(1);
@@ -72,12 +99,20 @@ impl State {
             return;
         }
         if self.frames_in_world == SETTLE || self.frames_in_world % CHECK_EVERY == 0 {
-            let speed = read_speed();
-            if speed != self.speed {
-                log(&format!("AttackSpeed={speed}"));
+            let (speed, phase, field) = read_settings();
+            if (speed, phase, field) != (self.speed, PHASE.load(Ordering::Relaxed), FIELD.load(Ordering::Relaxed)) {
+                log(&format!("AttackSpeed={speed} SpeedPhase={phase} SpeedField={field}"));
                 self.speed = speed;
+                SPEED.store(speed, Ordering::Relaxed);
+                PHASE.store(phase, Ordering::Relaxed);
+                FIELD.store(field, Ordering::Relaxed);
+                // The module's value stays where it is put, so it goes back to normal on every change.
+                if let Some(player) = world.main_player.as_mut() {
+                    player.chr_ins.modules.behavior.animation_speed = 1.0;
+                }
             }
         }
+        write_speed(1);
 
         // Hits: health lost by anyone whose last hit came from the player.
         let mut seen = 0;
@@ -111,28 +146,6 @@ impl State {
         // The list holds only who is loaded nearby; forget the rest now and then.
         if self.hp.len() > seen + 200 {
             self.hp.clear();
-        }
-
-        let Some(player) = world.main_player.as_mut() else { return };
-        let data = &mut player.chr_ins.modules.behavior_data;
-        let now = data.hks_animation_speed_multiplier;
-        if self.speed != 100 {
-            let want = self.speed as f32 / 100.0;
-            match self.wrote {
-                None => log(&format!("animation speed multiplier was {now}; writing {want} every frame")),
-                Some(wrote) if now != wrote => {
-                    self.resets += 1;
-                    if self.resets.is_power_of_two() {
-                        log(&format!("the game had set the multiplier to {now} (seen {} times)", self.resets));
-                    }
-                }
-                _ => {}
-            }
-            data.hks_animation_speed_multiplier = want;
-            self.wrote = Some(want);
-        } else if self.wrote.take().is_some() {
-            data.hks_animation_speed_multiplier = 1.0;
-            log("animation speed multiplier back to 1");
         }
     }
 }

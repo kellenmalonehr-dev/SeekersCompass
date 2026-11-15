@@ -282,6 +282,7 @@ impl State {
         for chr in world.summon_buddy_chr_set.characters() {
             if !chr.special_effect.entries().any(|e| e.param_id == SUMMON_ROW) {
                 chr.apply_speffect(SUMMON_ROW, true);
+                log(&format!("summon list: character {} npc {} gets the DamageDealt effect", chr.character_id, chr.npc_param_id));
                 summons += 1;
             }
         }
