@@ -44,8 +44,8 @@ static class CampMenu
         };
         for (int n = 0; n < items.Count; n++)
         {
-            d[ItemText(n)] = items[n].Line;
-            d[FoundText(n)] = $"{t.Found}\n{items[n].Line}";
+            d[ItemText(n)] = t.ItemLine(items[n]);
+            d[FoundText(n)] = $"{t.Found}\n{t.ItemLine(items[n])}";
         }
         for (int m = 1; m <= Builder.MaxMinutes; m++) d[MinutesText(m)] = t.BuffMinutes(m);
         for (int k = 0; k <= Builder.MaxKills; k++) d[KillsText(k)] = t.Kills(k == Builder.MaxKills ? $"{k}+" : $"{k}");
