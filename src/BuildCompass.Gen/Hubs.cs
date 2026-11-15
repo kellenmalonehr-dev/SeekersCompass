@@ -256,7 +256,11 @@ static class Hubs
     /// A merchant sits because his map's script (common event 90005726) forces this animation on him;
     /// placed without it he stands. The instruction is that event's own, with the entity filled in.
     const int MerchantSitAnimation = 930003;
-    static EMEVD.Instruction MerchantSit(uint entity) => new(2003, 18, BitConverter.GetBytes(entity).Concat(BitConverter.GetBytes(MerchantSitAnimation)).Concat(new byte[] { 0, 0, 0, 0 }).Concat(BitConverter.GetBytes(1f)).ToArray());
+    static EMEVD.Instruction MerchantSit(uint entity) => Sit(entity, MerchantSitAnimation);
+    /// Roderika sits cross-legged in Roundtable Hold because its event 11103711 forces this animation on her.
+    const int RoderikaSitAnimation = 90104;
+    /// Force Animation Playback, as the game's own events write it.
+    static EMEVD.Instruction Sit(uint entity, int animation) => new(2003, 18, BitConverter.GetBytes(entity).Concat(BitConverter.GetBytes(animation)).Concat(new byte[] { 0, 0, 0, 0 }).Concat(BitConverter.GetBytes(1f)).ToArray());
     const long HoldMerchantEvent = 11102790;
     const uint HusksEntity = 11100700;
 
@@ -340,7 +344,7 @@ static class Hubs
 
         string talkFolder = talk.Files[0].Name[..(talk.Files[0].Name.LastIndexOf('\\') + 1)];
         var characters = new List<uint>();
-        uint husksEntity = 0;
+        uint husksEntity = 0, roderikaEntity = 0;
         var hidden = new List<uint>(); // prop entities
         var effects = new List<(uint prop, int dummyPoly, int sfx)>();
 
@@ -372,6 +376,7 @@ static class Hubs
             character.InstanceID = Instance(character.Name);
             character.EntityID = Entity(ref nextCharacter);
             if (g == Husks) husksEntity = character.EntityID;
+            if (g == Roderika) roderikaEntity = character.EntityID;
             character.CollisionPartName = localCharacter.CollisionPartName;
             character.Unk1 = localCharacter.Unk1.DeepCopy();
             character.Gparam = localCharacter.Gparam.DeepCopy();
@@ -437,6 +442,7 @@ static class Hubs
         effect.Instructions.Add(EndIfBoss(dead: false));
         foreach (var (prop, dummyPoly, sfx) in effects) effect.Instructions.Add(emedf.Make(2006, 4, prop, dummyPoly, sfx)); // Create Asset-following SFX
         effect.Instructions.Add(MerchantSit(husksEntity)); // Force Animation Playback: the merchant sits
+        effect.Instructions.Add(Sit(roderikaEntity, RoderikaSitAnimation)); // and so does Roderika
         emevd.Events.Add(hide);
         emevd.Events.Add(effect);
         var init = emevd.Events.First(e => e.ID == 0).Instructions;
