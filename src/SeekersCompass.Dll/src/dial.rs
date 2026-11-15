@@ -1,8 +1,10 @@
-//! Damage Dial: `DamageTaken = 50` under [DamageDial] in seekers_compass.ini means half damage taken.
+//! Damage Dial: `DamageTaken = 50` under [DamageDial] in seekers_compass.ini means half damage taken,
+//! and `DamageDealt = 50` means the player's own hits do half damage.
 //!
 //! Nothing on disk changes. In memory, this borrows SpEffectParam row 7280, an unused area-scaling
 //! row, makes it neutral, sets its damage cut rates (which multiply calculated damage on the
-//! defender's side) and keeps that effect on the local player.
+//! defender's side) and its attack rates (which multiply the damage of the holder's own hits), and
+//! keeps that effect on the local player.
 //!
 //! Bleed and frostbite use the same row's damage rates, which also leave buildup alone. Poison and
 //! rot have no such rate, so their tick damage is scaled directly on the rows enemies use. Those
@@ -50,17 +52,20 @@ pub fn start(tasks: &CSTaskImp) -> Result<(), String> {
 struct Settings {
     /// Percent of normal damage, 1 to 1000.
     damage_taken: u32,
+    /// Percent of normal damage dealt by the player's own hits, 1 to 1000.
+    damage_dealt: u32,
     /// Whether the game shares the effect with other players. Off by default: a player without
     /// the mod would see row 7280's original values on this character.
     sync: bool,
 }
 
 fn read_settings() -> Settings {
-    let mut s = Settings { damage_taken: 100, sync: false };
+    let mut s = Settings { damage_taken: 100, damage_dealt: 100, sync: false };
     for (key, value) in crate::ini("DamageDial") {
         let Ok(value) = value.parse::<u32>() else { continue };
         match key.as_str() {
             "damagetaken" => s.damage_taken = value.clamp(1, 1000),
+            "damagedealt" => s.damage_dealt = value.clamp(1, 1000),
             "sync" => s.sync = value != 0,
             _ => {}
         }
@@ -124,6 +129,16 @@ fn set_cut(row: &mut SP_EFFECT_PARAM_ST, rate: f32) {
     row.set_freeze_damage_rate(status);
 }
 
+/// The attack rates multiply the damage of each hit by the one holding the effect, per damage type.
+/// Buildup, stance damage and the HP-percent damage of bleed and frostbite are left alone.
+fn set_dealt(row: &mut SP_EFFECT_PARAM_ST, rate: f32) {
+    row.set_physics_attack_rate(rate);
+    row.set_magic_attack_rate(rate);
+    row.set_fire_attack_rate(rate);
+    row.set_thunder_attack_rate(rate);
+    row.set_dark_attack_rate(rate);
+}
+
 /// Scales poison and rot ticks from their original values, which are kept in `base`.
 fn scale_enemy_ticks(rate: f32, base: &mut HashMap<u32, (f32, i32)>) -> Result<usize, String> {
     let params = unsafe { SoloParamRepository::instance_mut() }.map_err(|e| format!("params not ready: {e:?}"))?;
@@ -146,7 +161,7 @@ fn scale_enemy_ticks(rate: f32, base: &mut HashMap<u32, (f32, i32)>) -> Result<u
 
 /// Makes the row ours. Refuses if it holds anything other than the values we expect, because
 /// another mod is then using it and it must be left alone.
-fn prepare_row(rate: f32) -> Result<(), String> {
+fn prepare_row(taken: f32, dealt: f32) -> Result<(), String> {
     let params = unsafe { SoloParamRepository::instance_mut() }.map_err(|e| format!("params not ready: {e:?}"))?;
     let row = params.get_mut::<SpEffectParam>(ROW as u32).ok_or("row 7280 doesn't exist")?;
     let hp = row.max_hp_rate();
@@ -157,7 +172,8 @@ fn prepare_row(rate: f32) -> Result<(), String> {
     } else if hp != 1.0 || atk != 1.0 {
         return Err(format!("row 7280 holds unexpected values (HP rate {hp}, attack rate {atk})"));
     }
-    set_cut(row, rate);
+    set_cut(row, taken);
+    set_dealt(row, dealt);
     Ok(())
 }
 
@@ -191,10 +207,10 @@ impl State {
         }
         let settings = read_settings();
         if self.settings != Some(settings) {
-            log(&format!("settings: DamageTaken={} Sync={}", settings.damage_taken, settings.sync as u8));
+            log(&format!("settings: DamageTaken={} DamageDealt={} Sync={}", settings.damage_taken, settings.damage_dealt, settings.sync as u8));
             self.settings = Some(settings);
         }
-        if let Err(e) = prepare_row(settings.damage_taken as f32 / 100.0) {
+        if let Err(e) = prepare_row(settings.damage_taken as f32 / 100.0, settings.damage_dealt as f32 / 100.0) {
             if !self.row_refused {
                 log(&format!("{e}; effect not applied"));
                 self.row_refused = true;
