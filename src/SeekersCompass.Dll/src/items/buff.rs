@@ -444,8 +444,10 @@ fn write_row(v: Values, icon: i32) -> Result<(), String> {
     row.set_def_enemy_dmg_correct_rate_fire(v.ward);
     row.set_def_enemy_dmg_correct_rate_thunder(v.ward);
     row.set_def_enemy_dmg_correct_rate_dark(v.ward);
-    // The DLL keeps time itself, so the game never ends the effect on its own.
-    row.set_effect_endurance(-1.0);
+    // The DLL keeps time itself and puts the effect back if the game ends it. The time is finite
+    // because the game's own effects that show an icon are timed, and endless ones (talismans)
+    // show none.
+    row.set_effect_endurance(3600.0);
     row.set_icon_id(if icon > 0 { icon } else { -1 });
     Ok(())
 }
