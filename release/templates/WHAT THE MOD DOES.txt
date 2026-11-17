@@ -1,7 +1,7 @@
 WHAT THE MOD DOES
 =================
 
-A test build (2.0.0-alpha1) of one Elden Ring mod with seven features. It runs through Seamless
+A test build (2.0.0-alpha1) of one Elden Ring mod with eight features. It runs through Seamless
 Co-op's launcher or another offline start, never with Easy Anti-Cheat, and never touches your
 normal online save. Each feature can be switched off on its own in seekers_compass.ini.
 
@@ -93,6 +93,15 @@ The idea: kill enemies, rest at a grace, and for a while your hits make you stro
 - Both can be changed while the game is running.
 
 
+8. GOLDEN RUNES FOR THE NEXT LEVEL
+- When you are short of runes for your next level and the golden runes you carry can cover
+  the difference, the grace menu shows "Use Golden Runes for Next Level".
+- Choosing it uses up the rune items that overshoot the least and adds their runes, so you
+  can level up right away. The line is not there when it would not be enough.
+- Counts every item that only gives runes: Golden Runes, Hero's, Numen's and Lord's Runes, and
+  the Realm of Shadow's runes.
+
+
 SETTINGS
 ELDEN RING\Game\OfflineMods\SeekersCompass\seekers_compass.ini  (open it with Notepad)
 Each feature has a section with Enabled = 1 or 0; restart the game after changing Enabled.
@@ -104,6 +113,7 @@ This is a test build. Known gaps:
 - Co-op with a second player has not been tried, with or without the mod on both sides.
 - Camp's stacks were checked with test keys, not in a real fight, and the on-screen buff
   icon may not show.
+- The golden rune line is new and has not been tried in game.
 - The tier 6 keepsakes, some hub rooms' character spots, and the single shop at the Husks
   have had little or no play.
 If something looks wrong, send seekers_compass.log from the folder above.

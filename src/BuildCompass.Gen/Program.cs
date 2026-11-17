@@ -97,6 +97,8 @@ static class Program
             case "talisman": TalismanRows.Run(args.Skip(1).ToArray()); return 0;
             case "near": MapNear.Run(args.Skip(1).ToArray()); return 0;
             case "graces": Graces.Run(args.Skip(1).ToArray()); return 0;
+            case "runes": RuneItems.Run(); return 0;
+            case "usedflags": { var u = FlagScan.UsedFlags(GameData.Load(Program.In("regulation.bin"))); Console.WriteLine(string.Join(" ", Enumerable.Range(int.Parse(args[1]), int.Parse(args[2]) - int.Parse(args[1]) + 1).Where(f => u.Contains((uint)f)))); return 0; }
             case "cnvcheck": CnvCheck.Run(args.Skip(1).ToArray()); return 0;
             case "cnvspells": CnvSpells.Run(args.Skip(1).ToArray()); return 0;
             case "findlot": FindLot.Run(args.Skip(1).ToArray()); return 0;

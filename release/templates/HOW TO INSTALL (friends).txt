@@ -42,6 +42,8 @@ A short list; "WHAT THE MOD DOES.txt" in this zip has the details.
   Roderika and Enia also wait in that boss room. The rooms are listed under Roundtable Hold
   in the grace list on the map, and "Roundtable Hold" in the grace menu picks your default.
   The Husks now look like a travelling merchant with an instrument, and sit beside Hewg.
+- Golden runes: when the golden runes you carry can cover what you are missing for your next
+  level, the grace menu shows "Use Golden Runes for Next Level", which uses just enough of them.
 - Damage Dial (off unless you turn it on): makes you take, and deal, less or more damage.
   It only changes YOUR damage, also in someone else's game.
 

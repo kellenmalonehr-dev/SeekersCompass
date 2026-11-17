@@ -153,11 +153,13 @@ static class Hubs
         // The hub list in the grace menu, with its lines in every language (the rooms' own place names).
         commonTalk ??= BND4.Read(Program.In("script", "talk", Common + ".talkesdbnd.dcx"));
         HubPicker.AddTo(commonTalk, rooms);
+        RuneLine.AddTo(commonTalk, usedFlags, gd);
         commonTalk.Write(OutFile(outDir, "script", "talk", Common + ".talkesdbnd.dcx"));
         int holdText = RoundtablePlaceName;
         foreach (string lang in Directory.GetDirectories(Path.Combine(Program.GameDir, "msg")).Select(Path.GetFileName).Where(l => File.Exists(Program.In("msg", l, "item_dlc02.msgbnd.dcx")) && File.Exists(Program.In("msg", l, "menu_dlc02.msgbnd.dcx"))))
         {
             var lines = HubPicker.Texts(new Text(Program.In("msg", lang, "item_dlc02.msgbnd.dcx")), holdText, rooms);
+            foreach (var (id, line) in RuneLine.Texts(lang)) lines[id] = line;
             foreach (string bnd in GraceLoadouts.Gen.Builder.MenuBnds)
                 GraceLoadouts.Gen.Builder.PatchFmgs(Program.In("msg", lang, bnd), OutFile(outDir, "msg", lang, bnd), fmg => fmg == "EventTextForTalk" ? lines : null);
         }
