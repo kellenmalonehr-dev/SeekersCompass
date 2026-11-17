@@ -3,7 +3,7 @@ using SoulsFormats;
 
 namespace BuildCompass.Gen;
 
-/// Puts items that are inside a location (ruin, cave, catacomb...) onto that location's map icon,
+/// Puts items that are inside a dungeon (cave, catacomb, tunnel...) onto that dungeon's map icon,
 /// in a row of badges along its lower-right corner, the way NPC marks sit on locations. Slots taken
 /// by a vanilla NPC mark are skipped so items line up beside the NPC instead of covering it.
 class LocationSnap
@@ -12,9 +12,10 @@ class LocationSnap
     static readonly HashSet<int> Markers = new() { 80, 83, 84, 85, 87, 88 };
     const int NpcIcon = 80;
 
-    // Open-world items this close to a location belong to it. Dungeon interiors (m30-m4x) always
+    // Open-world items are drawn where they lie (snapping them to a nearby location icon put some far
+    // from the item, e.g. in Redmane Castle). Dungeon interiors (m30-m4x) always
     // belong to the location their entrance converts to, if one is reasonably near.
-    const float SnapRadius = 70, DungeonRadius = 400;
+    const float DungeonRadius = 400;
     // Badge row, in metres from the location's anchor (+X east, +Z north).
     const float FirstX = 35, FirstZ = -30, Step = 28;
     const int PerRow = 5;
@@ -50,7 +51,7 @@ class LocationSnap
         var near = locations.Where(l => l.space == me.space)
             .Select(l => (l, d: Vector2.Distance(l.xz, me.xz))).OrderBy(x => x.d).FirstOrDefault();
         bool dungeon = IsDungeon(p.Area);
-        if (near.l.id == 0 || near.d > (dungeon ? DungeonRadius : SnapRadius)) return (p.Pos, 0);
+        if (!dungeon || near.l.id == 0 || near.d > DungeonRadius) return (p.Pos, 0);
 
         var target = NextFreeSlot(near.l);
         Snapped++;

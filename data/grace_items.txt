@@ -1,0 +1,434 @@
+; Grace Items. Each [id] starts an item; save files refer to items by that id, so don't rename one
+; that characters already own. Graces are listed by id, with names, in graces.txt.
+;
+; Items in one track upgrade in place: a character uses the highest tier it owns, and the Camp menu
+; shows one line per track. Discovering a grace in "found" gives the item, including graces
+; discovered before the mod was installed.
+;
+; Seats set how long the buff lasts. Keepsakes hold stacks, which the hits you land build while
+; the buff runs: one stack can be held for every kills_per_point kills since your last sit, up to
+; max. "effect" is what the stacks do:
+;   Fury         2% more damage to enemies per stack
+;   Second Wind  stamina recovers faster per stack (2 points; the Green Turtle Talisman is 8)
+;   Bulwark      3% less poise damage taken per stack
+;   Ward         at full stacks, a shell cuts the next 3 hits you take by 4% per stack
+;   Leech        at full stacks, your next hit heals 0.8% of max HP per stack
+; "per_stack = <number>" on a keepsake changes those amounts. A spent Ward or Leech comes back
+; when your stacks drop below full and are built up again.
+; The camp menu numbers items by their order here (up to 64), so rebuild the menu after changes.
+; Seats lie on the ground under the sitting player. "right" and "forward" (meters, as the sitting
+; player faces) shift a model whose middle isn't where it should be; "turn" (degrees) turns it.
+; (A seat with "lift = <height>" raises the player onto it, but they keep the ground-sitting pose,
+; so no seat uses it.)
+; Written from ITEMS-DRAFT.md.
+
+[seat_1]
+name = Worn Bedroll
+track = seat
+tier = 1
+kind = seat
+model = AEG023_602
+minutes = 15
+found = 1042361951            ; The First Step
+
+[seat_2]
+name = Straw Bedding
+track = seat
+tier = 2
+kind = seat
+model = AEG020_990
+minutes = 25
+found = 1039401950            ; Lake-Facing Cliffs
+
+[seat_3]
+name = Traveler's Rug
+track = seat
+tier = 3
+kind = seat
+model = AEG270_675
+scale = 0.5
+minutes = 35
+found = 1038501950            ; Grand Lift of Dectus
+
+[seat_4]
+name = Fine Rug
+track = seat
+tier = 4
+kind = seat
+model = AEG270_682
+scale = 0.4
+minutes = 45
+found = 1042511950            ; Outer Wall Phantom Tree
+
+[seat_5]
+name = Lord's Carpet
+track = seat
+tier = 5
+kind = seat
+model = AEG270_676
+scale = 0.6
+right = -0.7
+forward = 0.55
+minutes = 60
+found = 13001953              ; Crumbling Beast Grave
+
+[fury_1]
+name = Crystal of Fury 1
+track = fury
+tier = 1
+kind = keepsake
+model = AEG258_158
+scale = 0.3
+effect = Fury
+max = 3
+kills_per_point = 5
+found = 1042361950    ; Church of Elleh
+
+[fury_2]
+name = Crystal of Fury 2
+track = fury
+tier = 2
+kind = keepsake
+model = AEG258_158
+scale = 0.34
+effect = Fury
+max = 5
+kills_per_point = 5
+found = 1035501952, 14001951    ; Royal Moongazing Grounds; Debate Parlor
+
+[fury_3]
+name = Crystal of Fury 3
+track = fury
+tier = 3
+kind = keepsake
+model = AEG258_158
+scale = 0.38
+effect = Fury
+max = 6
+kills_per_point = 5
+found = 1051361950, 1036541951    ; Redmane Castle Plaza; Ninth Mt. Gelmir Campsite
+
+[fury_4]
+name = Crystal of Fury 4
+track = fury
+tier = 4
+kind = keepsake
+model = AEG258_158
+scale = 0.42
+effect = Fury
+max = 8
+kills_per_point = 5
+found = 11001957, 1051571951    ; Queen's Bedchamber; Castle Sol Main Gate
+
+[fury_5]
+name = Crystal of Fury 5
+track = fury
+tier = 5
+kind = keepsake
+model = AEG258_158
+scale = 0.46
+effect = Fury
+max = 10
+kills_per_point = 5
+found = 13001950, 15001950    ; Maliketh, the Black Blade; Malenia, Goddess of Rot
+
+[fury_6]
+name = Crystal of Fury 6
+track = fury
+tier = 6
+kind = keepsake
+model = AEG258_158
+scale = 0.5
+effect = Fury
+max = 12
+kills_per_point = 5
+found = 2054391950    ; Jagged Peak Summit (Realm of Shadow)
+
+[ward_1]
+name = Votive Candle of Warding 1
+track = ward
+tier = 1
+kind = keepsake
+model = AEG020_991
+scale = 0.8
+effect = Ward
+max = 3
+kills_per_point = 5
+found = 1043371950, 1044331950    ; Agheel Lake North; Castle Morne Rampart
+
+[ward_2]
+name = Votive Candle of Warding 2
+track = ward
+tier = 2
+kind = keepsake
+model = AEG020_991
+scale = 0.85
+effect = Ward
+max = 5
+kills_per_point = 5
+found = 1037461950, 14001950    ; Church of Vows; Raya Lucaria Grand Library
+
+[ward_3]
+name = Votive Candle of Warding 3
+track = ward
+tier = 3
+kind = keepsake
+model = AEG020_991
+scale = 0.9
+effect = Ward
+max = 6
+kills_per_point = 5
+found = 1037491950, 12011951    ; Church of Inhibition; Ainsel River Well Depths
+
+[ward_4]
+name = Votive Candle of Warding 4
+track = ward
+tier = 4
+kind = keepsake
+model = AEG020_991
+scale = 0.95
+effect = Ward
+max = 8
+kills_per_point = 5
+found = 11001950, 1053521950    ; Elden Throne; Fire Giant
+
+[ward_5]
+name = Votive Candle of Warding 5
+track = ward
+tier = 5
+kind = keepsake
+model = AEG020_991
+scale = 1
+effect = Ward
+max = 10
+kills_per_point = 5
+found = 1048571950, 15001952    ; Ordina, Liturgical Town; Elphael Inner Wall
+
+[ward_6]
+name = Votive Candle of Warding 6
+track = ward
+tier = 6
+kind = keepsake
+model = AEG020_991
+scale = 1.05
+effect = Ward
+max = 12
+kills_per_point = 5
+found = 2044451951    ; Church of the Bud (Realm of Shadow)
+
+[leech_1]
+name = Platter of Leeching 1
+track = leech
+tier = 1
+kind = keepsake
+model = AEG277_128
+scale = 0.8
+effect = Leech
+max = 3
+kills_per_point = 5
+found = 10001950, 1042371950    ; Godrick the Grafted; Gatefront
+
+[leech_2]
+name = Platter of Leeching 2
+track = leech
+tier = 2
+kind = keepsake
+model = AEG277_128
+scale = 0.85
+effect = Leech
+max = 5
+kills_per_point = 5
+found = 12071951, 1037441950    ; Nokron, Eternal City; Academy Gate Town
+
+[leech_3]
+name = Platter of Leeching 3
+track = leech
+tier = 3
+kind = keepsake
+model = AEG277_128
+scale = 0.9
+effect = Leech
+max = 6
+kills_per_point = 5
+found = 16001952, 1037531950    ; Volcano Manor; Primeval Sorcerer Azur
+
+[leech_4]
+name = Platter of Leeching 4
+track = leech
+tier = 4
+kind = keepsake
+model = AEG277_128
+scale = 0.95
+effect = Leech
+max = 8
+kills_per_point = 5
+found = 12031950, 12041950    ; Prince of Death's Throne; Astel, Naturalborn of the Void
+
+[leech_5]
+name = Platter of Leeching 5
+track = leech
+tier = 5
+kind = keepsake
+model = AEG277_128
+scale = 1
+effect = Leech
+max = 10
+kills_per_point = 5
+found = 13001951, 13001960    ; Dragonlord Placidusax; Beside the Great Bridge
+
+[leech_6]
+name = Platter of Leeching 6
+track = leech
+tier = 6
+kind = keepsake
+model = AEG277_128
+scale = 1.05
+effect = Leech
+max = 12
+kills_per_point = 5
+found = 2051451950    ; Cathedral of Manus Metyr (Realm of Shadow)
+
+[second_wind_1]
+name = Waterskin of Second Wind 1
+track = second_wind
+tier = 1
+kind = keepsake
+model = AEG027_220
+scale = 0.8
+effect = Second Wind
+max = 3
+kills_per_point = 5
+found = 10001952, 1043341950    ; Castleward Tunnel; Church of Pilgrimage
+
+[second_wind_2]
+name = Waterskin of Second Wind 2
+track = second_wind
+tier = 2
+kind = keepsake
+model = AEG027_220
+scale = 0.85
+effect = Second Wind
+max = 5
+kills_per_point = 5
+found = 1034411950, 1035501952    ; Moonlight Altar; Royal Moongazing Grounds
+
+[second_wind_3]
+name = Waterskin of Second Wind 3
+track = second_wind
+tier = 3
+kind = keepsake
+model = AEG027_220
+scale = 0.9
+effect = Second Wind
+max = 6
+kills_per_point = 5
+found = 16001950, 1046401950    ; Rykard, Lord of Blasphemy; Smoldering Church
+
+[second_wind_4]
+name = Waterskin of Second Wind 4
+track = second_wind
+tier = 4
+kind = keepsake
+model = AEG027_220
+scale = 0.95
+effect = Second Wind
+max = 8
+kills_per_point = 5
+found = 1053521950, 1049531950    ; Fire Giant; Zamor Ruins
+
+[second_wind_5]
+name = Waterskin of Second Wind 5
+track = second_wind
+tier = 5
+kind = keepsake
+model = AEG027_220
+scale = 1
+effect = Second Wind
+max = 10
+kills_per_point = 5
+found = 11051953, 15001954    ; Leyndell, Capital of Ash; Haligtree Roots
+
+[second_wind_6]
+name = Waterskin of Second Wind 6
+track = second_wind
+tier = 6
+kind = keepsake
+model = AEG027_220
+scale = 1.05
+effect = Second Wind
+max = 12
+kills_per_point = 5
+found = 2048391951    ; Charo's Hidden Grave (Realm of Shadow)
+
+[bulwark_1]
+name = Pack of the Bulwark 1
+track = bulwark
+tier = 1
+kind = keepsake
+model = AEG201_034
+scale = 0.8
+effect = Bulwark
+max = 3
+kills_per_point = 5
+found = 1041381950    ; Stormhill Shack
+
+[bulwark_2]
+name = Pack of the Bulwark 2
+track = bulwark
+tier = 2
+kind = keepsake
+model = AEG201_034
+scale = 0.85
+effect = Bulwark
+max = 5
+kills_per_point = 5
+found = 12071950    ; Siofra River Well Depths
+
+[bulwark_3]
+name = Pack of the Bulwark 3
+track = bulwark
+tier = 3
+kind = keepsake
+model = AEG201_034
+scale = 0.9
+effect = Bulwark
+max = 6
+kills_per_point = 5
+found = 1052381950    ; Starscourge Radahn
+
+[bulwark_4]
+name = Pack of the Bulwark 4
+track = bulwark
+tier = 4
+kind = keepsake
+model = AEG201_034
+scale = 0.95
+effect = Bulwark
+max = 8
+kills_per_point = 5
+found = 1051571950    ; Snow Valley Ruins Overlook
+
+[bulwark_5]
+name = Pack of the Bulwark 5
+track = bulwark
+tier = 5
+kind = keepsake
+model = AEG201_034
+scale = 1
+effect = Bulwark
+max = 10
+kills_per_point = 5
+found = 13001950    ; Maliketh, the Black Blade
+
+[bulwark_6]
+name = Pack of the Bulwark 6
+track = bulwark
+tier = 6
+kind = keepsake
+model = AEG201_034
+scale = 1.05
+effect = Bulwark
+max = 12
+kills_per_point = 5
+found = 2050481951    ; Scadutree Base (Realm of Shadow)
+

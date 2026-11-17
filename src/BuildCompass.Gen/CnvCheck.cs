@@ -94,3 +94,90 @@ static class TalkGrep
                             Console.WriteLine($"{(path.StartsWith(Program.GameDir) ? "vanilla" : "base")} {Path.GetFileName(path)} {Path.GetFileName(f.Name)} g{g} s{sid}: c{c.CommandBank}_{c.CommandID}({string.Join(", ", c.Arguments.Select(EzState.Disasm))})");
     }
 }
+
+static class TalkCmd
+{
+    /// `talkcmd <bank> <id> [max]`: where talk scripts use a command, with its arguments.
+    /// `talkcmd` alone: every command in use, with how often.
+    public static void Run(string[] args)
+    {
+        var counts = new Dictionary<(int, int), int>();
+        int shown = 0, max = args.Length > 2 ? int.Parse(args[2]) : 12;
+        foreach (var path in Program.InFiles("*.talkesdbnd.dcx", "script", "talk"))
+            foreach (var f in BND4.Read(path).Files.Where(f => f.Name.EndsWith(".esd")))
+                foreach (var (g, states) in ESD.Read(f.Bytes).StateGroups)
+                    foreach (var (sid, s) in states)
+                        foreach (var c in s.EntryCommands.Concat(s.ExitCommands).Concat(s.WhileCommands).Concat(s.Conditions.SelectMany(All)))
+                        {
+                            counts[(c.CommandBank, c.CommandID)] = counts.GetValueOrDefault((c.CommandBank, c.CommandID)) + 1;
+                            if (args.Length >= 2 && c.CommandBank == int.Parse(args[0]) && c.CommandID == int.Parse(args[1]) && shown++ < max)
+                                Console.WriteLine($"{Path.GetFileName(path).Split('.')[0]} {Path.GetFileName(f.Name)} g{g} s{sid}: ({string.Join(", ", c.Arguments.Select(EzState.Disasm))})");
+                        }
+        if (args.Length < 2)
+            foreach (var kv in counts.Where(kv => kv.Key.Item1 != 6).OrderBy(kv => kv.Key)) Console.WriteLine($"c{kv.Key.Item1}_{kv.Key.Item2}: {kv.Value}");
+        else Console.WriteLine($"{counts.GetValueOrDefault((int.Parse(args[0]), int.Parse(args[1])))} uses");
+    }
+
+    static IEnumerable<ESD.CommandCall> All(ESD.Condition c) => c.PassCommands.Concat(c.Subconditions.SelectMany(All));
+}
+
+static class PartPos
+{
+    /// `partpos <map> <name part>`: where the map's parts whose name contains the text stand.
+    public static void Run(string[] args)
+    {
+        var msb = MSBE.Read(Program.In("map", "mapstudio", args[0] + ".msb.dcx"));
+        foreach (var p in msb.Parts.GetEntries().Where(p => p.Name.Contains(args[1])))
+            Console.WriteLine($"{p.Name} entity {p.EntityID} at {p.Position.X:0.00} {p.Position.Y:0.00} {p.Position.Z:0.00} facing {p.Rotation.Y:0.#}");
+    }
+}
+
+static class ParamRow
+{
+    /// `paramrow <param> <id> [id...] [--mod <folder>]`: the fields of rows, side by side where they differ from the first.
+    public static void Run(string[] args)
+    {
+        int mi = Array.IndexOf(args, "--mod");
+        string reg = mi >= 0 ? Path.Combine(args[mi + 1], "regulation.bin") : Program.In("regulation.bin");
+        if (mi >= 0) args = args.Where((a, i) => i != mi && i != mi + 1).ToArray();
+        var p = GameData.Load(reg)[args[0]];
+        var rows = args.Skip(1).Select(a => p[int.Parse(a)]).ToList();
+        foreach (var cell in rows[0].Cells)
+        {
+            var values = rows.Select(r => r == null ? "(no row)" : Convert.ToString(r[cell.Def.InternalName].Value)).ToList();
+            if (rows.Count == 1 || values.Distinct().Count() > 1) Console.WriteLine($"{cell.Def.InternalName,-28} {string.Join("  |  ", values)}");
+        }
+    }
+}
+
+static class MapPeople
+{
+    /// `people <map>`: the map's characters with their names, talk scripts, entities and places.
+    public static void Run(string[] args)
+    {
+        var gd = GameData.Load(Program.In("regulation.bin"));
+        var text = new Text(Program.In("msg", "engus", "item_dlc02.msgbnd.dcx"));
+        var npc = gd["NpcParam"];
+        foreach (var e in MSBE.Read(Program.In("map", "mapstudio", args[0] + ".msb.dcx")).Parts.Enemies.OrderBy(e => e.Name))
+        {
+            string name = npc[e.NPCParamID] is { } row ? text.Get("NpcName", row.Get<int>("nameId")) : null;
+            Console.WriteLine($"{e.Name,-12} {name ?? "-",-28} npc {e.NPCParamID,-10} talk {e.TalkID,-10} entity {e.EntityID,-9} at {e.Position.X:0.0} {e.Position.Y:0.0} {e.Position.Z:0.0} facing {e.Rotation.Y:0} on {e.CollisionPartName}");
+        }
+    }
+}
+
+static class ModelParts
+{
+    /// `modelparts <model>`: every placement of a character model in the game's maps, with the
+    /// settings that decide how it behaves.
+    public static void Run(string[] args)
+    {
+        foreach (var path in Program.InFiles("*.msb.dcx", "map", "mapstudio"))
+        {
+            string map = Path.GetFileName(path).Split('.')[0];
+            if (map.EndsWith("_99")) continue;
+            foreach (var e in MSBE.Read(path).Parts.Enemies.Where(e => e.ModelName == args[0]))
+                Console.WriteLine($"{map} {e.Name} npc {e.NPCParamID} think {e.ThinkParamID} talk {e.TalkID} init {e.CharaInitID} anim {e.BackupEventAnimID} spEffectSet {string.Join(",", e.SpEffectSetParamID)} entity {e.EntityID}");
+        }
+    }
+}

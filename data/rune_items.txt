@@ -1,0 +1,36 @@
+# The consumables that only give runes when used, in the order the grace menu's rune line and
+# the DLL number them (at most 40). One goods id per line; the rune amount after it is for
+# reading only: the DLL takes each item's amount from the running game's own data.
+# The list comes from the generator's runes command.
+2900 200   # Golden Rune [1]
+2901 400   # Golden Rune [2]
+2902 800   # Golden Rune [3]
+2903 1200   # Golden Rune [4]
+2904 1600   # Golden Rune [5]
+2905 2000   # Golden Rune [6]
+2906 2500   # Golden Rune [7]
+2907 3000   # Golden Rune [8]
+2908 3800   # Golden Rune [9]
+2909 5000   # Golden Rune [10]
+2910 6250   # Golden Rune [11]
+2911 7500   # Golden Rune [12]
+2912 10000   # Golden Rune [13]
+2913 12500   # Numen's Rune
+2914 15000   # Hero's Rune [1]
+2915 20000   # Hero's Rune [2]
+2916 25000   # Hero's Rune [3]
+2917 30000   # Hero's Rune [4]
+2918 35000   # Hero's Rune [5]
+2919 50000   # Lord's Rune
+2990 3000   # Lands Between Rune
+2002950 40000   # Leda's Rune
+2002951 500   # Broken Rune
+2002952 7500   # Shadow Realm Rune [1]
+2002953 10000   # Shadow Realm Rune [2]
+2002954 12500   # Shadow Realm Rune [3]
+2002955 15000   # Shadow Realm Rune [4]
+2002956 17500   # Shadow Realm Rune [5]
+2002957 22500   # Shadow Realm Rune [6]
+2002958 30000   # Shadow Realm Rune [7]
+2002959 50000   # Rune of an Unsung Hero
+2002960 80000   # Marika's Rune

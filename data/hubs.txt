@@ -1,0 +1,40 @@
+# Boss rooms that serve as Roundtable hubs once their boss is dead (read by the generator's `hubs`
+# command). Only rooms with a Site of Grace inside: travel goes to that grace.
+#   map  grace-entity  boss-defeat-flag  [spots=<file in data>]  [icon]   # note
+# Without spots=, the characters are placed around the grace automatically (see Hubs.AutoSpots):
+# on the far side of the grace from where travellers land, or with "landing-side" on the near side.
+# "icon" also draws the room's travel entry on the map beside Roundtable Hold's; without it the
+# room is only listed under Roundtable Hold in the grace list.
+# The list comes from `arenas` (work\arenas.tsv), checked by hand. Left out for now because their
+# grace stands in an open-world tile, which needs more work: Starscourge Radahn.
+m14_00_00_00 14001951 14000850 spots=hub-debate-parlor.txt icon   # Debate Parlor (Red Wolf of Radagon)
+m14_00_00_00 14001950 9118        # Raya Lucaria Grand Library (Rennala)
+m10_00_00_00 10001951 10000850 landing-side    # Margit, the Fell Omen (far side is the sloping gateway)
+m10_00_00_00 10001950 9101 spots=hub-godrick.txt   # Godrick the Grafted (uneven paving; far side is graves and flower beds)
+m11_00_00_00 11001951 11000850    # Erdtree Sanctuary (Godfrey's shade)
+m11_00_00_00 11001950 11000800    # Elden Throne (Morgott)
+m11_05_00_00 11051951 9106        # Erdtree Sanctuary, Capital of Ash (Sir Gideon)
+m11_05_00_00 11051950 11050800    # Elden Throne, Capital of Ash (Godfrey)
+m12_01_00_00 12011950 12010800    # Dragonkin Soldier of Nokstella
+m12_02_00_00 12021951 12020850    # Mimic Tear
+m12_03_00_00 12031950 12030800    # Prince of Death's Throne (Fia's Champions)
+m12_05_00_00 12051950 12050800    # Cocoon of the Empyrean (Mohg, Lord of Blood)
+m13_00_00_00 13001952 13000850    # Dragon Temple Altar (Godskin Duo)
+m13_00_00_00 13001951 13000830    # Dragonlord Placidusax
+m13_00_00_00 13001950 9116        # Maliketh, the Black Blade
+m15_00_00_00 15001955 15000850    # Haligtree Promenade (Loretta)
+m15_00_00_00 15001950 9120        # Malenia, Goddess of Rot
+m16_00_00_00 16001951 16000850    # Temple of Eiglay (Godskin Noble)
+m16_00_00_00 16001950 16000800    # Rykard, Lord of Blasphemy
+m16_00_00_00 16001962 16000860    # Abductor Virgin
+m20_00_00_00 20001950 9140        # Theatre of the Divine Beast (Dancing Lion)
+m21_00_00_00 21001951 21000850    # Main Gate Plaza (Golden Hippopotamus)
+m21_01_00_00 21011950 21010800    # Messmer's Dark Chamber
+m22_00_00_00 22001950 22000800    # Garden of Deep Purple (Putrescent Knight)
+m28_00_00_00 28001950 28000800    # Discussion Chamber (Midra)
+m12_04_00_00 12041950 12040800    # Astel, Naturalborn of the Void (no talk file of its own)
+m25_00_00_00 25001950 25000800    # Finger Birthing Grounds (Metyr; no talk file of its own)
+# Redmane Castle: not a boss room. The residents stand on the raised area behind Castellan Jerren
+# once Radahn is dead (the festival is over); travel lands at the plaza's grace below it. The
+# grace's object is in the large tile around the castle's, so every spot comes from the file.
+m60_51_36_00 1051361950 9130 spots=hub-redmane.txt   # Redmane Castle Plaza (after Starscourge Radahn)

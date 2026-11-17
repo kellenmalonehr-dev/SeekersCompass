@@ -1,0 +1,13 @@
+# Where Roundtable's characters stand in the Debate Parlor (Raya Lucaria, m14_00_00_00):
+# name x y z yaw (yaw in radians), the numbers as in Game\OfflineMods\GraceItems\position.txt.
+# Measured in game on 2026-11-10: the stone landing in front of the stage is at y 110.547, the
+# stage's front edge at about x 160.1, the top of the steps at about x 157.3; the grace floor is
+# y 110.197. The room's own candelabras stand at the foot of the steps at z -225.9 and -218.7.
+# Hewg: centred under the banner. At x 158.5 his forge overhung the steps, so 0.3 m further back;
+# the swords and chain behind him then reach the stage edge.
+hewg 158.800 110.547 -222.400 1.571
+# The Husks: to his right as you face him, clear of the candelabra. Their books reach back 1.8 m.
+husks 158.500 110.547 -228.400 1.571
+# Roderika: on the same landing, to Hewg's left as you face him, beyond the candelabra (a guess:
+# nobody has stood there). Enia is placed automatically, across the grace from the landing spot.
+roderika 158.600 110.547 -216.400 1.571

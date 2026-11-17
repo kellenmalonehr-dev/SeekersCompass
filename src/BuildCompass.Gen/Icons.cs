@@ -27,17 +27,17 @@ static class Icons
     // 215 shares 213's region like 214 does; 22 is the only other slot no param places that the map
     // can draw (`freeicons` also lists "MENU_MAP_07", which no icon id reaches).
     // 22 drew underneath every other kind's icon in-game, so the boss badge, which overlaps item
-    // icons, takes 89 (the small-marker range draws on top) and the few bell bearings take 22.
+    // icons, takes 89 and the goods kinds (bell bearings, whetstones, key items) share 22.
     static readonly Dictionary<string, (ushort id, string atlas, float scale)> Slots = new()
     {
         ["weapon"] = (86, "SB_MapCursor_02", 1.45f),
         ["spell"] = (215, "SB_MapCursor_03_dlc", 1f),
         ["armor"] = (214, "SB_MapCursor_03_dlc", 1f), // 212 never drew in-game; 214 did
         ["talisman"] = (233, "SB_MapCursor_03_dlc", 1f),
-        ["bellbearing"] = (22, "SB_MapCursor", 1.15f), // 22's region is only 122 tall
+        ["keyitem"] = (22, "SB_MapCursor", 1.15f), // shared by the goods kinds; 22's region is only 122 tall
         ["badge_boss"] = (89, "SB_MapCursor_02", 0.6f),
     };
-    public static readonly Dictionary<Kind, ushort> Slot = Enum.GetValues<Kind>().ToDictionary(k => k, k => Slots[k.ToString().ToLowerInvariant()].id);
+    public static readonly Dictionary<Kind, ushort> Slot = Enum.GetValues<Kind>().ToDictionary(k => k, k => Slots[Catalog.StatKinds.Contains(k) ? k.ToString().ToLowerInvariant() : "keyitem"].id);
     public static readonly Dictionary<Badge, ushort> BadgeSlot = Enum.GetValues<Badge>().ToDictionary(b => b, b => Slots[BadgeKey(b)].id);
     static string BadgeKey(Badge b) => "badge_" + b.ToString().ToLowerInvariant();
 
@@ -380,19 +380,17 @@ static class Icons
                 g.FillEllipse(fill, 44, 57, 7, 7); // highlight
                 break;
 
-            case Kind.BellBearing: // bell on a ring
-                using (var ring = new Pen(c.ink, 5f)) g.DrawEllipse(ring, 42, 4, 16, 14);
-                using (var bell = new GraphicsPath())
+            case Kind.KeyItem: // a key
+                using (var paper = new SolidBrush(Color.FromArgb(200, 165, 105))) g.FillRectangle(paper, -6, -6, 112, 112); // same as the painted icons
+                using (var bow = new GraphicsPath()) { bow.AddEllipse(30, 6, 40, 40); Shape(bow); }
+                g.FillEllipse(inkFill, 42, 18, 16, 16);
+                using (var shaft = new GraphicsPath())
                 {
-                    bell.AddBezier(30, 74, 30, 34, 36, 18, 50, 18);
-                    bell.AddBezier(50, 18, 64, 18, 70, 34, 70, 74);
-                    bell.AddLine(70, 74, 82, 82);
-                    bell.AddLine(82, 82, 18, 82);
-                    bell.CloseFigure();
-                    Shape(bell);
+                    shaft.AddRectangle(new RectangleF(44, 44, 12, 50));
+                    shaft.AddRectangle(new RectangleF(56, 70, 16, 9));
+                    shaft.AddRectangle(new RectangleF(56, 84, 16, 9));
+                    Shape(shaft);
                 }
-                g.FillEllipse(inkFill, 43, 82, 14, 14); // clapper
-                g.DrawLine(thin, 38, 40, 38, 66);         // shine
                 break;
         }
         g.Restore(state);

@@ -14,9 +14,18 @@ static class Program
     /// file the base provides replaces vanilla's, so the generated files are merged on top of it.
     public static string Base;
 
+    /// Optional top layer: the mod folder being built, for a later part of the build (hubs) that
+    /// works on files an earlier part wrote. Read before the base layer and the game.
+    public static string Over;
+
     /// An input file: from the base layer if it has one, else vanilla.
     public static string In(params string[] parts)
     {
+        if (Over != null)
+        {
+            string o = Path.Combine(new[] { Over }.Concat(parts).ToArray());
+            if (File.Exists(o)) return o;
+        }
         if (Base != null)
         {
             string b = Path.Combine(new[] { Base }.Concat(parts).ToArray());
@@ -29,7 +38,7 @@ static class Program
     public static IEnumerable<string> InFiles(string pattern, params string[] dir)
     {
         var files = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
-        foreach (var root in new[] { GameDir, Base })
+        foreach (var root in new[] { GameDir, Base, Over })
         {
             if (root == null) continue;
             string d = Path.Combine(new[] { root }.Concat(dir).ToArray());
@@ -57,10 +66,17 @@ static class Program
             case "dump": Dump.Run(args.Skip(1).ToArray()); return 0;
             case "flags": FlagScan.Report(args.Skip(1).ToArray()); return 0;
             case "build": Builder.Run(args.Skip(1).ToArray()); return 0;
+            case "hubs": Hubs.Run(args.Skip(1).ToArray()); return 0;
+            case "arenas": Arenas.Run(); return 0;
             case "verify": Explore.Verify(args.Length > 1 ? args[1] : "mod"); return 0;
             case "dialogs": Explore.Dialogs(); return 0;
             case "iconuse": Explore.IconUse(args.Skip(1).ToArray()); return 0;
             case "freeicons": Explore.FreeIcons(); return 0;
+            case "wmptext": WmpText.Run(); return 0;
+            case "roundtable": Roundtable.Run(); return 0;
+            case "placefind": PlaceFind.Run(args.Skip(1).ToArray()); return 0;
+            case "talkgroups": TalkGroups.Run(args.Skip(1).ToArray()); return 0;
+            case "textaudit": TextAudit.Run(args.Skip(1).ToArray()); return 0;
             case "rewards": Explore.RewardList(); return 0;
             case "event": Explore.EventDump(args.Skip(1).ToArray()); return 0;
             case "whereis": Explore.WhereIs(args.Skip(1).ToArray()); return 0;
@@ -76,10 +92,22 @@ static class Program
             case "armorbonus": ArmorBonus.Run(); return 0;
             case "namefind": NameFind.Run(args.Skip(1).ToArray()); return 0;
             case "solo": Solo.Run(args.Skip(1).ToArray()); return 0;
+            case "speffects": SpEffectScan.Run(args.Skip(1).ToArray()); return 0;
+            case "fielduse": FieldUse.Run(args.Skip(1).ToArray()); return 0;
+            case "talisman": TalismanRows.Run(args.Skip(1).ToArray()); return 0;
+            case "near": MapNear.Run(args.Skip(1).ToArray()); return 0;
+            case "graces": Graces.Run(args.Skip(1).ToArray()); return 0;
+            case "runes": RuneItems.Run(); return 0;
+            case "usedflags": { var u = FlagScan.UsedFlags(GameData.Load(Program.In("regulation.bin"))); Console.WriteLine(string.Join(" ", Enumerable.Range(int.Parse(args[1]), int.Parse(args[2]) - int.Parse(args[1]) + 1).Where(f => u.Contains((uint)f)))); return 0; }
             case "cnvcheck": CnvCheck.Run(args.Skip(1).ToArray()); return 0;
             case "cnvspells": CnvSpells.Run(args.Skip(1).ToArray()); return 0;
             case "findlot": FindLot.Run(args.Skip(1).ToArray()); return 0;
             case "talkgrep": TalkGrep.Run(args.Skip(1).ToArray()); return 0;
+            case "talkcmd": TalkCmd.Run(args.Skip(1).ToArray()); return 0;
+            case "partpos": PartPos.Run(args.Skip(1).ToArray()); return 0;
+            case "paramrow": ParamRow.Run(args.Skip(1).ToArray()); return 0;
+            case "people": MapPeople.Run(args.Skip(1).ToArray()); return 0;
+            case "modelparts": ModelParts.Run(args.Skip(1).ToArray()); return 0;
             case "fmgexact": FmgExact.Run(args.Skip(1).ToArray()); return 0;
             case "textcheck": TextCheck.Run(args.Skip(1).ToArray()); return 0;
             case "tpf": Tpf.List(args.Skip(1).ToArray()); return 0;

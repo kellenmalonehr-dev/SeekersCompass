@@ -93,13 +93,22 @@ game = "eldenring"
 id = "seekers-compass"
 path = "SeekersCompass"
 "@
+# The mod's DLL (loadouts, Grace Items, Damage Dial, auto pickup); its settings are beside it.
+if (Test-Path (Join-Path $here "SeekersCompass\seekers_compass.dll")) { $profileText += "`n`n[[natives]]`npath = 'SeekersCompass\seekers_compass.dll'`n" }
 if ($seamless) { $profileText += "`n`n[[natives]]`npath = '$ersc'`n" }
 $profilePath = Join-Path $here "SeekersCompass.me3"
-# Grace Loadouts can be added to this profile (its Install_GraceLoadouts.bat): keep its block.
-$graceLoadouts = $null
+# Other mods can be added to this profile by their installers (Grace Loadouts, Grace Items): keep
+# their marked blocks. Each names its setup script and its place in the order ("# order:";
+# Grace Loadouts 1.0's has none: 20).
+$addedBlocks = @()
 if (Test-Path $profilePath) {
-    $m = [regex]::Match([IO.File]::ReadAllText($profilePath), "# >>> Grace Loadouts[\s\S]*?# <<< Grace Loadouts")
-    if ($m.Success) { $graceLoadouts = $m.Value -replace "\r\n", "`n"; $profileText = $profileText.TrimEnd() + "`n`n$graceLoadouts`n" }
+    foreach ($m in [regex]::Matches([IO.File]::ReadAllText($profilePath), "(?m)^# >>> (.+?) \(managed by[^\r\n]*\r?\n([\s\S]*?)^# <<< \1[^\r\n]*")) {
+        $name = $m.Groups[1].Value; $body = $m.Groups[2].Value
+        $order = if ($body -match "(?m)^# order: (\d+)") { [int]$Matches[1] } elseif ($name -eq "Grace Loadouts") { 20 } else { 0 }
+        $setup = if ($body -match "(?m)^# setup: (.+?)\r?$") { $Matches[1] } else { $null }
+        $addedBlocks += @{ Name = $name; Order = $order; Setup = $setup }
+        $profileText = $profileText.TrimEnd() + "`n`n$($m.Value -replace "\r\n", "`n")`n"
+    }
 }
 
 # ---- find Mod Engine 3 -----------------------------------------------------------------------
@@ -134,11 +143,13 @@ if (-not $me3Exe -and -not $associated) {
     exit 1
 }
 [IO.File]::WriteAllText($profilePath, $profileText.Replace("`r`n", "`n").Replace("`n", "`r`n"), $utf8)
-if ($graceLoadouts -and $graceLoadouts -match "(?m)^# setup: (.+?)\r?$" -and (Test-Path $Matches[1])) {
-    # After a Seeker's Compass update its grace menu changed: Grace Loadouts re-merges onto it.
-    & powershell -NoProfile -ExecutionPolicy Bypass -File $Matches[1] -Action refresh $profilePath | ForEach-Object { Write-Host "Grace Loadouts - $_" }
-} elseif ($graceLoadouts) {
-    Write-Host "Grace Loadouts' folder has moved: run its Install_GraceLoadouts.bat again and choose SeekersCompass.me3."
+# After a Seeker's Compass update its grace menu changed: the first mod after it re-merges onto it,
+# and passes that on to the next (a merge already made for these menus is reused, so this is quick).
+$next = @($addedBlocks | Where-Object { $_.Order -gt 10 -and $_.Setup } | Sort-Object { $_.Order })[0]
+if ($next -and (Test-Path $next.Setup)) {
+    & powershell -NoProfile -ExecutionPolicy Bypass -File $next.Setup -Action refresh $profilePath | ForEach-Object { Write-Host "$($next.Name) - $_" }
+} elseif ($next) {
+    Write-Host "$($next.Name)'s folder has moved: run its installer again and choose SeekersCompass.me3."
 }
 
 # ---- launch ----------------------------------------------------------------------------------

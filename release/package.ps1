@@ -16,6 +16,16 @@ $utf8 = New-Object Text.UTF8Encoding $false
 # and mod managers mangle; the generator (.NET 9) writes standard forward-slash entries.
 function New-Zip($dir, $zip) { dotnet $gen zip $dir $zip }
 function Write-Text($path, $text) { [IO.File]::WriteAllText($path, $text.Replace("`r`n", "`n").Replace("`n", "`r`n"), $utf8) }
+# The DLL half of the mod (built by src/SeekersCompass.Dll/build.sh) with its settings and the Grace
+# Items list. On Convergence, auto pickup starts switched off: Convergence has its own.
+function Add-Dll($package, $convergence) {
+    $dll = Join-Path $root "out\dll\seekers_compass.dll"
+    if (-not (Test-Path $dll)) { throw "out\dll\seekers_compass.dll is missing: run  bash src/SeekersCompass.Dll/build.sh  first." }
+    Copy-Item $dll, (Join-Path $root "data\grace_items.txt") $package
+    $ini = Get-Content (Join-Path $root "src\SeekersCompass.Dll\seekers_compass.ini") -Raw
+    if ($convergence) { $ini = [regex]::Replace($ini, '(?s)(\[AutoPickup\].*?Enabled = )1', '${1}0') }
+    Write-Text (Join-Path $package "seekers_compass.ini") $ini
+}
 
 dotnet build (Join-Path $root "src\BuildCompass.Gen") -c Release -v q | Out-Null
 if (Test-Path $stage) { Remove-Item $stage -Recurse -Force }
@@ -24,6 +34,7 @@ New-Item -ItemType Directory -Force $stage, $dist | Out-Null
 # ---------------- vanilla ----------------
 $v = Join-Path $stage "vanilla"
 dotnet $gen build --out "release\staging\vanilla\SeekersCompass" | Select-String "placements|grace menu:|wrote|Exception"
+Add-Dll (Join-Path $v "SeekersCompass") $false
 Copy-Item (Join-Path $PSScriptRoot "templates\README.txt") $v
 Copy-Item (Join-Path $PSScriptRoot "templates\Launch_SeekersCompass.bat") $v
 # The launcher writes SeekersCompass.me3 at each launch (Seamless detection, save choice).
@@ -63,8 +74,11 @@ if (-not $Convergence -or -not (Test-Path (Join-Path $Convergence "mod\regulatio
 $c = Join-Path $stage "convergence"
 $cver = (Get-Content (Join-Path $Convergence "version.txt") -Raw).Trim()
 dotnet $gen build --base (Join-Path $Convergence "mod") --out "release\staging\convergence\SeekersCompass-Convergence" | Select-String "placements|grace menu:|wrote|Exception"
+Add-Dll (Join-Path $c "SeekersCompass-Convergence") $true
 # Tells the setup script this build carries Convergence's own files, so it must load after Convergence's package.
 Write-Text (Join-Path $c "SeekersCompass-Convergence\requires-package.txt") "convergence-er"
+# And which Convergence version, so the setup script refuses any other.
+Write-Text (Join-Path $c "SeekersCompass-Convergence\built-for-version.txt") $cver
 # The install script adds our package (load_after convergence-er) to Convergence's own me3 profiles,
 # so players keep launching with Start_Convergence.bat. me3 maps every package's files in load
 # order and the last one wins a shared path, so our merged files override Convergence's.

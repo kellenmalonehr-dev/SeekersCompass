@@ -1,0 +1,11 @@
+# Where Roundtable's characters stand in Godrick's courtyard (Stormveil, m10_00_00_00):
+# name x y z yaw (yaw in radians), the numbers as in Game\OfflineMods\SeekersCompass\position.txt.
+# The paving here is at about y 73.66 (the player's height 3 m from the grace, 2026-11-13). The
+# grace object sits at 73.76 and the travel landing spot at 74.11, so neither gives the floor:
+# at the landing spot's height the Husks floated and Hewg's forge cut into a raised slab.
+hewg -236.529 73.66 347.668 -1.489
+husks -228.656 73.66 343.179 2.525
+# Roderika and Enia: outside those two on the same paving, 5.5 m from the grace (a guess from
+# the grace's and landing spot's places; nobody has stood there).
+roderika -234.73 73.66 351.75 -0.617
+enia -226.06 73.66 346.81 1.652
