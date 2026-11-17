@@ -5,8 +5,8 @@ A test build (2.0.0-alpha1) of one Elden Ring mod with seven features. It runs t
 Co-op's launcher or another offline start, never with Easy Anti-Cheat, and never touches your
 normal online save. Each feature can be switched off on its own in seekers_compass.ini.
 
-Rest at any Site of Grace to find the mod's menu lines: Seeker's Compass, Loadouts, Camp and
-Roundtable Hold.
+Rest at any Site of Grace to find the mod's menu lines: Loadouts, Camp and Roundtable Hold.
+Seeker's Compass joins them once you have bought the compass (see 1).
 
 
 1. MAP MARKS (Seeker's Compass)

@@ -21,7 +21,8 @@ If Windows or your antivirus asks about the .bat file or xinput1_4.dll: they are
 mod (the small loader that lets the game read the mod's files). Allow them.
 
 HOW TO TELL IT WORKED
-Rest at any Site of Grace. The menu has new lines: Seeker's Compass, Loadouts, Camp and Roundtable Hold.
+Rest at any Site of Grace. The menu has new lines: Loadouts and Camp.
+("Seeker's Compass" joins them once you have bought the compass from Merchant Kale.)
 
 WHAT YOU GET
 A short list; "WHAT THE MOD DOES.txt" in this zip has the details.
