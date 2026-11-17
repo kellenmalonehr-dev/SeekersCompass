@@ -1,0 +1,109 @@
+WHAT THE MOD DOES
+=================
+
+A test build (2.0.0-alpha1) of one Elden Ring mod with seven features. It runs through Seamless
+Co-op's launcher or another offline start, never with Easy Anti-Cheat, and never touches your
+normal online save. Each feature can be switched off on its own in seekers_compass.ini.
+
+Rest at any Site of Grace to find the mod's menu lines: Seeker's Compass, Loadouts, Camp and
+Roundtable Hold.
+
+
+1. MAP MARKS (Seeker's Compass)
+- Marks the weapons, spells, armor and talismans lying in the world on your map.
+- You choose what shows: by damage stat (Strength, Dexterity, Intelligence, Faith, Arcane) and
+  by item type. Miner's Bell Bearings have a switch of their own.
+- Hover a mark to see the item: a weapon's scaling and requirements, a spell's cost, an armor
+  piece's bonuses, a talisman's effect.
+- To start: buy the Seeker's Compass from Merchant Kale at the Church of Elleh (100 runes),
+  then choose "Seeker's Compass" at a grace. Lines that are on glow.
+- Works in the game's languages, with the game's own item names.
+
+
+2. LOADOUTS
+- At a grace, save the gear you are wearing to one of five slots, and equip a saved slot
+  again later in one step.
+- Loadouts are kept per character.
+
+
+3. CAMP (Grace Items)
+The idea: kill enemies, rest at a grace, and for a while your hits make you stronger.
+
+- Sites of grace give you items when you discover them (graces you found before installing
+  count too). A pop-up in the Camp menu tells you what you found.
+- Two kinds of item, equipped under Camp at a grace:
+    Seats (one equipped)       how long the buff lasts: 15 to 60 minutes, by tier.
+    Keepsakes (two equipped)   what the buff does.
+- When you rest, the kills since your last rest are banked. For every 5 kills, each equipped
+  keepsake can hold one more stack, up to its tier's limit.
+- While the buff runs, every hit you land adds a stack (at most one every 0.4 seconds).
+  Stacks start to drop when you stop landing hits: after 4 seconds, plus 1 second for every
+  10 kills banked, up to 10 seconds. They then drop one per second.
+- Being hit does not cost stacks. Dying ends the buff.
+- At full stacks your character glows red.
+- The five keepsakes:
+    Crystal of Fury            2% more damage to enemies per stack.
+    Waterskin of Second Wind   stamina recovers faster per stack.
+    Pack of the Bulwark        3% less poise damage taken per stack (you are harder to stagger).
+    Votive Candle of Warding   at full stacks, a shell cuts the next 3 hits you take by 4% per
+                               stack.
+    Platter of Leeching        at full stacks, your next hit heals 0.8% of your max HP per stack.
+  A used shell or heal comes back when your stacks drop below full and you build them up again.
+- Tiers 1 to 5 hold 3, 5, 6, 8 and 10 stacks and are found across the Lands Between. Tier 6
+  holds 12 and is found in the Realm of Shadow.
+- Your seat and keepsakes appear on the ground beside you while you sit. Only you see them.
+- Only enemies are affected: none of this changes damage between players.
+- Status lines in Camp show the buff's minutes left and the kills banked at your last rest.
+
+
+4. AUTO PICKUP
+- Plants and crafting materials, items lying in the world, lootable remains and your own lost
+  runes are picked up as you walk past, without the button and without the animation.
+- Off unless you turn them on: what killed enemies drop, and treasure chests.
+- Optional: pause picking up while you are in combat.
+
+
+5. BELL BEARINGS
+- The first time you talk to a merchant, you receive their bell bearing, so you no longer have
+  to kill them for the Twin Maiden Husks to sell their stock. The merchant keeps trading.
+- Covers the wandering merchants and these named sellers: Gostoc, Corhyn, D, Patches, Sellen,
+  Bernahl, Miriel, the Blackguard, Thops and Moore.
+- At the Twin Maiden Husks, Purchase opens one shop with the stock of every bell bearing you
+  have handed in.
+
+
+6. ROUNDTABLE HUBS
+- After you defeat a story boss, Smithing Master Hewg, the Twin Maiden Husks, Roderika and
+  Enia also wait in that boss's room, so you can upgrade, shop, tune spirits and trade
+  remembrances without going back to Roundtable Hold. 28 rooms, from Margit to the Realm of
+  Shadow, and Redmane Castle after Radahn.
+- The rooms you have unlocked are listed under Roundtable Hold in the map's grace list.
+- "Roundtable Hold" in the grace menu picks your default room; its icon on the map takes you
+  straight there.
+- In Roundtable Hold itself the Husks sit beside Hewg.
+- The Husks look like a travelling merchant with an instrument.
+
+
+7. DAMAGE DIAL (off unless you turn it on)
+- DamageTaken: how much damage you take. 100 is normal, 50 is half, 200 is double.
+- DamageDealt: how much damage your hits do, counted the same way. It also scales stance
+  damage, the bleed and frostbite bursts your attacks cause, and your spirit summons' hits.
+- It changes only your own damage, also in someone else's game, and not damage between
+  players.
+- Both can be changed while the game is running.
+
+
+SETTINGS
+ELDEN RING\Game\OfflineMods\SeekersCompass\seekers_compass.ini  (open it with Notepad)
+Each feature has a section with Enabled = 1 or 0; restart the game after changing Enabled.
+Everything else in the file applies about a second after you save it.
+
+
+NOT TESTED YET
+This is a test build. Known gaps:
+- Co-op with a second player has not been tried, with or without the mod on both sides.
+- Camp's stacks were checked with test keys, not in a real fight, and the on-screen buff
+  icon may not show.
+- The tier 6 keepsakes, some hub rooms' character spots, and the single shop at the Husks
+  have had little or no play.
+If something looks wrong, send seekers_compass.log from the folder above.

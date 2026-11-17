@@ -21,9 +21,10 @@ If Windows or your antivirus asks about the .bat file or xinput1_4.dll: they are
 mod (the small loader that lets the game read the mod's files). Allow them.
 
 HOW TO TELL IT WORKED
-Rest at any Site of Grace. The menu has three new lines: Seeker's Compass, Loadouts and Camp.
+Rest at any Site of Grace. The menu has new lines: Seeker's Compass, Loadouts, Camp and Roundtable Hold.
 
 WHAT YOU GET
+A short list; "WHAT THE MOD DOES.txt" in this zip has the details.
 - Map marks: buy the Seeker's Compass from Merchant Kale at the Church of Elleh (100 runes),
   then choose "Seeker's Compass" at a grace to mark weapons, spells, armor and talismans on
   the map by the damage stats you pick.
@@ -34,20 +35,21 @@ WHAT YOU GET
   The more you killed before resting, the more stacks you can hold. You glow at full stacks.
 - Auto pickup: plants, items lying in the world and your own lost runes are picked up as you
   walk past. Things enemies drop still need the button.
-- Merchant bell bearings: walk up to a wandering merchant and you get their bell bearing, so
-  the Twin Maiden Husks sell their stock.
-- Roundtable hubs: after you beat a story boss, Smithing Master Hewg and the Twin Maiden Husks
-  also stand in that boss room. The rooms are listed under Roundtable Hold in the grace list
-  on the map. In Roundtable Hold itself the Husks now sit beside Hewg.
-- Damage Dial (off unless you turn it on): makes you take less or more damage. It only
-  changes the damage YOU take, also in someone else's game.
+- Bell bearings: the first time you talk to a merchant you get their bell bearing, so the
+  Twin Maiden Husks sell their stock. At the Husks, Purchase opens one shop with everything.
+- Roundtable hubs: after you beat a story boss, Smithing Master Hewg, the Twin Maiden Husks,
+  Roderika and Enia also wait in that boss room. The rooms are listed under Roundtable Hold
+  in the grace list on the map, and "Roundtable Hold" in the grace menu picks your default.
+  The Husks now look like a travelling merchant with an instrument, and sit beside Hewg.
+- Damage Dial (off unless you turn it on): makes you take, and deal, less or more damage.
+  It only changes YOUR damage, also in someone else's game.
 
 SETTINGS
 ELDEN RING\Game\OfflineMods\SeekersCompass\seekers_compass.ini  (open it with Notepad)
 - Each feature has a section with  Enabled = 1  (on) or  0  (off). Restart the game after
   changing Enabled.
-- Damage Dial: under [DamageDial] set  Enabled = 1  and  DamageTaken = 50  for half damage
-  (100 is normal).
+- Damage Dial: under [DamageDial] set  Enabled = 1 , then  DamageTaken = 50  for half damage
+  taken and  DamageDealt = 150  for one and a half times damage dealt (100 is normal).
 - Auto pickup: under [AutoPickup] choose what gets picked up.
 
 IF SOMETHING GOES WRONG
