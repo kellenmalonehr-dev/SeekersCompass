@@ -484,8 +484,8 @@ static class Hubs
         // entry in no section is not drawn on the map at all (seen in game). So the default hub is
         // listed twice, once at the top with its icon.
         icon.Set("bonfireSubCategorySortId", (ushort)(holdRow.Get<ushort>("bonfireSubCategorySortId") + 1));
-        icon.Set("dispMinZoomStep", (byte)0);
-        icon.Set("selectMinZoomStep", (byte)0);
+        // Not drawn on the map (it keeps the list entry's unreachable zoom step): Roundtable Hold's emblem is
+        // fixed to the screen, so a map icon only stood beside it fully zoomed out on a fully revealed map.
         warp.Rows.Add(icon);
         rooms.Add(new HubPicker.Room(order, roomRow.Get<uint>("eventflagId"), chosen, roomRow.Get<int>("textId1")));
         Console.WriteLine($"{hub.Map} {hub.GraceEntity}: {characters.Count} characters, {hidden.Count} props, events {hideId} and {effectId}, travel row {rowId} to grace {roomRow.ID}, map entry {iconId} while flag {chosen} is on, residents shown by flag {hub.BossDeadFlag}");

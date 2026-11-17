@@ -78,8 +78,8 @@ The idea: kill enemies, rest at a grace, and for a while your hits make you stro
   remembrances without going back to Roundtable Hold. 28 rooms, from Margit to the Realm of
   Shadow, and Redmane Castle after Radahn.
 - The rooms you have unlocked are listed under Roundtable Hold in the map's grace list.
-- "Roundtable Hold" in the grace menu picks your default room; its icon on the map takes you
-  straight there.
+- "Roundtable Hold" in the grace menu picks your default room, which is then listed first
+  under Roundtable Hold in the grace list.
 - In Roundtable Hold itself the Husks sit beside Hewg.
 - The Husks look like a travelling merchant with an instrument.
 
